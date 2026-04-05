@@ -813,7 +813,7 @@
 
           <div class="field" style="margin-top:14px;">
             <label>E-posta</label>
-            <input id="authEmail" type="email" name="email" autocomplete="email" placeholder="ornek@mail.com">
+            <input id="authEmail" type="email" name="email" inputmode="email" autocomplete="email" placeholder="ornek@mail.com">
           </div>
           <div class="field" style="margin-top:14px;">
             <label>Şifre</label>
@@ -2294,12 +2294,27 @@
       try{
         const cfg = window.SUPABASE_CONFIG || {};
         const url = String(cfg.url || "");
-        const ref = url.includes("supabase.co") ? url.split("https://")[1]?.split(".supabase.co")[0] : "";
-        if(ref){
-          const key = `sb-${ref}-auth-token`;
+        let ref = "";
+        if(url){
+          try{
+            const hostname = new URL(url).hostname;
+            ref = hostname.split(".supabase.co")[0] || "";
+          }catch(err){
+            ref = url.split("://")[1]?.split(".supabase.co")[0] || "";
+          }
+        }
+        const keysToRemove = new Set();
+        if(ref) keysToRemove.add(`sb-${ref}-auth-token`);
+        for(let i = 0; i < localStorage.length; i++){
+          const key = localStorage.key(i);
+          if(key && key.startsWith("sb-") && key.endsWith("-auth-token")){
+            keysToRemove.add(key);
+          }
+        }
+        keysToRemove.forEach(key=>{
           localStorage.removeItem(key);
           sessionStorage.removeItem(key);
-        }
+        });
       }catch(err){
         console.warn("Supabase session temizlenemedi", err);
       }
@@ -2612,28 +2627,31 @@
         btn.disabled = true;
       });
       let error = null;
-      if(supabaseClient){
-        const result = await supabaseClient.auth.signOut({ scope: "local" }).catch(err=>({ error: err }));
-        error = result?.error || null;
+      try{
+        if(supabaseClient){
+          const result = await supabaseClient.auth.signOut({ scope: "local" }).catch(err=>({ error: err }));
+          error = result?.error || null;
+        }
+        clearSupabaseSessionStorage();
+        currentUser = null;
+        appUnlocked = false;
+        localModeUnlocked = false;
+        localStorage.removeItem(STORAGE_KEY);
+        appData = blankAppData();
+        setAuthMode("signin");
+        renderAll();
+        updateAuthUI();
+        if(error){
+          alert(`Çıkış tamamlandı fakat oturum temizliği uyarısı var: ${error.message || error}`);
+        }else{
+          alert("Çıkış yapıldı. Yerel görünüm temizlendi.");
+        }
+      }finally{
+        buttons.forEach(btn=>{
+          btn.disabled = false;
+        });
+        isSigningOut = false;
       }
-      clearSupabaseSessionStorage();
-      currentUser = null;
-      appUnlocked = false;
-      localModeUnlocked = false;
-      localStorage.removeItem(STORAGE_KEY);
-      appData = blankAppData();
-      setAuthMode("signin");
-      renderAll();
-      updateAuthUI();
-      if(error){
-        alert(`Çıkış tamamlandı fakat oturum temizliği uyarısı var: ${error.message || error}`);
-      }else{
-        alert("Çıkış yapıldı. Yerel görünüm temizlendi.");
-      }
-      buttons.forEach(btn=>{
-        btn.disabled = false;
-      });
-      isSigningOut = false;
     }
 
     async function saveAccountProfile(){
