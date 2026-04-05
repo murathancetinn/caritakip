@@ -99,10 +99,19 @@
     .btn.danger{background:var(--danger)}
     .btn.warning{background:var(--warning)}
     .btn.info{background:var(--info)}
+    .btn.github{
+      background:#0f172a;
+    }
     .btn.small{
       padding:8px 11px;
       border-radius:10px;
       font-size:12px;
+      box-shadow:none;
+    }
+    .btn[disabled]{
+      opacity:.55;
+      cursor:not-allowed;
+      transform:none;
       box-shadow:none;
     }
 
@@ -511,6 +520,30 @@
       color:var(--muted);
       line-height:1.6;
     }
+    .auth-divider{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      margin:18px 0;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:700;
+      text-transform:uppercase;
+      letter-spacing:.4px;
+    }
+    .auth-divider::before,
+    .auth-divider::after{
+      content:"";
+      height:1px;
+      flex:1;
+      background:#e2e8f0;
+    }
+    .auth-provider-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:center;
+    }
     .app-shell.hidden{
       display:none;
     }
@@ -715,6 +748,12 @@
           <button class="btn secondary" id="authSecondaryBtn" type="button" onclick="toggleAuthMode()">Kayit Ekranina Gec</button>
           <button class="btn success hidden" id="authContinueBtn" type="button" onclick="enterApplication()">Uygulamaya Gec</button>
           <button class="btn danger hidden" id="authSwitchAccountBtn" type="button" onclick="prepareFreshAccountFlow()">Baska Hesap Kullan</button>
+        </div>
+
+        <div class="auth-divider">veya</div>
+        <div class="auth-provider-row">
+          <button class="btn github" id="authGithubBtn" type="button" onclick="signInWithGithub()">GitHub ile Giris</button>
+          <button class="btn secondary hidden" id="authLocalBtn" type="button" onclick="enterLocalMode()">Yerel Modda Devam Et</button>
         </div>
 
         <div class="auth-note" id="cloudStatusText">Supabase yapilandirmasi tamamsa giris ekranini kullanabilirsiniz.</div>
@@ -1691,6 +1730,7 @@
 
               <div class="action-row" style="margin-top:14px;">
                 <button class="btn warning" type="button" onclick="changeAccountPassword()">Şifreyi Değiştir</button>
+                <button class="btn danger" type="button" onclick="signOutUser()">Çıkış Yap</button>
               </div>
             </div>
 
@@ -1906,6 +1946,8 @@
     let suppressCloudSave = false;
     let authMode = "signin";
     let appUnlocked = false;
+    let localModeUnlocked = false;
+    const AUTO_ENTER_ON_SESSION = true;
 
     function blankAppData(){
       return {
@@ -2119,6 +2161,8 @@
       if(message.includes("user already registered")) return "Bu e-posta ile daha önce hesap oluşturulmuş. Giriş Yap sekmesinden devam edin.";
       if(message.includes("password should be at least")) return "Şifre en az 6 karakter olmalıdır.";
       if(message.includes("email not confirmed")) return "E-posta doğrulaması bekleniyor. Mail kutunuzu kontrol edip hesabınızı onaylayın.";
+      if(message.includes("provider") && message.includes("not enabled")) return "GitHub girişini açmak için Supabase > Authentication > Providers > GitHub ayarını etkinleştirin.";
+      if(message.includes("redirect") && message.includes("not allowed")) return "GitHub yönlendirme adresi Supabase ayarlarında izinli değil. Auth > URL Configuration bölümüne GitHub Pages adresinizi ekleyin.";
       if(message.includes("for security purposes")) return mode === "signup"
         ? "Kayıt denemesi geçici olarak sınırlandı. Kısa bir süre sonra tekrar deneyin."
         : "Çok fazla deneme yapıldı. Kısa bir süre bekleyip tekrar deneyin.";
@@ -2131,8 +2175,15 @@
       document.getElementById("authDisplayName").value = "";
     }
 
+    function isAuthLocked(){
+      if(hasValidSupabaseConfig()){
+        return !appUnlocked;
+      }
+      return !localModeUnlocked;
+    }
+
     function updateAppVisibility(){
-      const locked = hasValidSupabaseConfig() ? !appUnlocked : false;
+      const locked = isAuthLocked();
       document.body.classList.toggle("auth-locked", locked);
       document.getElementById("authGate").classList.toggle("hidden", !locked);
       document.getElementById("appShell").classList.toggle("hidden", locked);
@@ -2140,6 +2191,12 @@
 
     function enterApplication(){
       appUnlocked = true;
+      updateAppVisibility();
+    }
+
+    function enterLocalMode(){
+      localModeUnlocked = true;
+      setCloudStatus("Yerel modda devam ediliyor. Bulut senkronu pasif.", "off");
       updateAppVisibility();
     }
 
@@ -2202,11 +2259,24 @@
     function updateAuthUI(){
       const email = currentUser?.email || "";
       const displayName = getUserDisplayName();
+      const configOk = hasValidSupabaseConfig();
+      const authPrimaryBtn = document.getElementById("authPrimaryBtn");
+      const authSecondaryBtn = document.getElementById("authSecondaryBtn");
+      const authGithubBtn = document.getElementById("authGithubBtn");
+      const authLocalBtn = document.getElementById("authLocalBtn");
+
+      if(authGithubBtn) authGithubBtn.classList.toggle("hidden", !configOk);
+      if(authLocalBtn) authLocalBtn.classList.toggle("hidden", configOk);
+
+      if(authPrimaryBtn) authPrimaryBtn.disabled = !configOk;
+      if(authSecondaryBtn) authSecondaryBtn.disabled = !configOk;
+      if(authGithubBtn) authGithubBtn.disabled = !configOk;
+
       document.getElementById("logoutBtn").classList.toggle("hidden", !currentUser);
       document.getElementById("authContinueBtn").classList.toggle("hidden", authMode === "signup" || !currentUser);
       document.getElementById("authSwitchAccountBtn").classList.toggle("hidden", !currentUser);
-      if(!hasValidSupabaseConfig()){
-        setCloudStatus("Yerel mod aktif. Supabase ayarı yapıldığında bulut senkronu açılır.", "off");
+      if(!configOk){
+        setCloudStatus("Supabase yapılandırması bulunamadı. Giriş için supabase-config.js dosyasını doldurun veya yerel modda devam edin.", "off");
         updateAppVisibility();
         return;
       }
@@ -2232,12 +2302,17 @@
 
       const cfg = window.SUPABASE_CONFIG;
       supabaseClient = window.supabase.createClient(cfg.url, cfg.anonKey, {
-        auth: { persistSession: true, autoRefreshToken: true }
+        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: "pkce" }
       });
 
-      supabaseClient.auth.onAuthStateChange(async (_event, session)=>{
+      supabaseClient.auth.onAuthStateChange(async (event, session)=>{
         currentUser = session?.user || null;
-        appUnlocked = false;
+        if(event === "SIGNED_IN" && AUTO_ENTER_ON_SESSION){
+          appUnlocked = true;
+        }
+        if(event === "SIGNED_OUT"){
+          appUnlocked = false;
+        }
         updateAuthUI();
         if(currentUser){
           await pullCloudData();
@@ -2252,7 +2327,9 @@
         return;
       }
       currentUser = data.session?.user || null;
-      appUnlocked = false;
+      if(currentUser && AUTO_ENTER_ON_SESSION){
+        appUnlocked = true;
+      }
       updateAuthUI();
       if(currentUser) await pullCloudData();
     }
@@ -2333,9 +2410,26 @@
         setCloudStatus(formatAuthError(error, "signin"), "warn");
         return;
       }
+      const { data } = await supabaseClient.auth.getUser();
+      currentUser = data?.user || currentUser;
       appUnlocked = true;
       clearAuthInputs(true);
-      updateAppVisibility();
+      updateAuthUI();
+    }
+
+    async function signInWithGithub(){
+      if(!supabaseClient){
+        setCloudStatus("Önce Supabase yapılandırmasını tamamlayın.", "warn");
+        return;
+      }
+      const redirectTo = `${window.location.origin}${window.location.pathname}`;
+      const { error } = await supabaseClient.auth.signInWithOAuth({
+        provider: "github",
+        options: { redirectTo }
+      });
+      if(error){
+        setCloudStatus(formatAuthError(error, "signin"), "warn");
+      }
     }
 
     async function signUpWithPassword(){
@@ -2371,7 +2465,10 @@
     }
 
     async function signOutUser(){
-      if(!supabaseClient) return;
+      if(!supabaseClient || !currentUser){
+        alert("Önce giriş yapmalısınız.");
+        return;
+      }
       const { error } = await supabaseClient.auth.signOut();
       if(error){
         alert(`Çıkış yapılamadı: ${error.message}`);
@@ -2379,6 +2476,7 @@
       }
       currentUser = null;
       appUnlocked = false;
+      localModeUnlocked = false;
       localStorage.removeItem(STORAGE_KEY);
       appData = blankAppData();
       setAuthMode("signin");
