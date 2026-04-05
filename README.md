@@ -1,223 +1,374 @@
 # Cari Takip Programi
 
-Bu proje tek dosyali bir cari takip uygulamasidir. Artik Supabase ile kullanici girisi yapabilir, verileri bulutta saklayabilir ve GitHub Pages uzerinden yayinlanabilir.
+Bu proje artik Supabase ile giris yapabilen, verileri bulutta saklayabilen ve GitHub Pages uzerinden yayinlanabilen bir cari takip uygulamasidir.
 
-## Ne Hazirlandi
+Bu README, hicbir sey bilmiyormussun gibi yazildi. Adim adim ilerlersen kurarsin.
 
-- `index.html`
-  Uygulamanin tum arayuzu, cari takip mantigi, Supabase giris ekrani ve bulut senkronu burada bulunur.
-- `supabase-config.js`
-  Supabase `url` ve `anon key` bilgilerini buraya gireceksiniz.
-- `supabase-config.example.js`
+## Sistem Nasil Calisiyor
+
+Burada 3 ayri parca var:
+
+1. GitHub
+   Kodunu tutar.
+2. GitHub Pages
+   `index.html` dosyasini internette yayinlar.
+3. Supabase
+   Kullanici girisi ve veritabani tarafidir.
+
+Yani akisin mantigi su:
+
+- Kod GitHub'da durur
+- Site GitHub Pages'te acilir
+- Site acilinca Supabase'e baglanir
+- Sen e-posta ve sifre ile giris yaparsin
+- Verilerin Supabase'te hesabina ozel saklanir
+
+## Bu Projede Hangi Dosya Ne Ise Yariyor
+
+- [index.html](/Users/murathan/Desktop/Adsız/index.html)
+  Uygulamanin kendisi.
+- [supabase-config.js](/Users/murathan/Desktop/Adsız/supabase-config.js)
+  Supabase proje bilgilerini buraya yazacaksin.
+- [supabase-config.example.js](/Users/murathan/Desktop/Adsız/supabase-config.example.js)
   Ornek ayar dosyasi.
-- `supabase-schema.sql`
-  Supabase SQL Editor icinde calistiracaginiz tablo ve RLS politikalarini icerir.
+- [supabase-schema.sql](/Users/murathan/Desktop/Adsız/supabase-schema.sql)
+  Supabase veritabani tablosunu ve guvenlik kurallarini olusturan SQL.
 
-## Yayin Mimarisinin Mantigi
+## En Onemli Kisim: Supabase API Key Hangisi?
 
-Bu kurulumda dogrudan GitHub ile Supabase arasinda ozel bir bag kurmuyorsunuz. Akis su sekilde calisir:
+Supabase'de `Project Settings > API` alanina girdiginde birden fazla key goreceksin. Karistirilan kisim burasi.
 
-1. Kod GitHub deposunda tutulur.
-2. GitHub Pages `index.html` dosyasini internetten yayinlar.
-3. Tarayicida acilan uygulama Supabase'e baglanir.
-4. Kullanici e-posta ve sifre ile giris yapar.
-5. Her kullanicinin verisi Supabase tablosunda kendi `user_id` degeri altinda saklanir.
+Supabase'in resmi dokumanina gore:
 
-Yani:
+- `Publishable key`
+  Tarayici tarafinda, yani bu proje gibi frontend uygulamalarda kullanilmasi gereken yeni anahtardir.
+- `Legacy anon key`
+  Eski tip client key'dir. Hala calisabilir ama Supabase yeni projelerde `Publishable key` kullanilmasini oneriyor.
+- `Secret key`
+  Sadece backend/server icindir. Bu projede kullanilmaz.
+- `service_role`
+  Sadece backend/server icindir. Bu projede kullanilmaz.
 
-- GitHub: kodu barindirir
-- Supabase: giris ve veritabani katmani olur
-- GitHub Pages: uygulamayi yayinlar
+Bu proje icin kullanacagin bilgiler sunlar:
 
-## Sirayla Yapilacaklar
+1. `Project URL`
+2. `Publishable key`
 
-### 1. GitHub deposunu hazirla
+Almayacaklarin:
 
-Bu klasor zaten bir git deposu. GitHub'da yeni bir repo olusturun ve bu klasoru ona gonderin.
+- `service_role`
+- `Secret key`
 
-Ornek:
+Mecbur kalmadikca kullanmayacaklarin:
+
+- `Legacy anon key`
+
+## Kisa Cevap
+
+Senin bu proje icin alman gerekenler:
+
+1. `Project URL`
+2. `Publishable key`
+
+Ve bunlari [supabase-config.js](/Users/murathan/Desktop/Adsız/supabase-config.js) dosyasina yazacaksin.
+
+## Supabase'de Tam Olarak Nereye Tiklayacaksin?
+
+### 1. Supabase hesabi ac
+
+[Supabase](https://supabase.com) sitesine gir.
+
+### 2. Yeni proje olustur
+
+1. `New project`
+2. Bir organization sec
+3. Proje adini gir
+4. Database password olustur
+5. Region sec
+6. `Create new project`
+
+Biraz bekle. Proje hazir olunca dashboard acilacak.
+
+### 3. SQL Editor'den veritabani tablosunu kur
+
+Sol menuden:
+
+1. `SQL Editor`
+2. `New query`
+3. [supabase-schema.sql](/Users/murathan/Desktop/Adsız/supabase-schema.sql) dosyasinin tamamini kopyala
+4. SQL Editor'a yapistir
+5. `Run`
+
+Bu islem su tablonun kurulmasini saglar:
+
+- `app_user_data`
+
+Ve her kullanicinin sadece kendi verisini okuyup yazmasini saglayan guvenlik kurallarini da acmis olur.
+
+### 4. E-posta ve sifre ile girisi ac
+
+Sol menuden:
+
+1. `Authentication`
+2. `Providers`
+3. `Email`
+
+Burada sunlari kontrol et:
+
+- `Enable Email provider` acik olsun
+
+Istersen su secenek olabilir:
+
+- Email confirmation acik ise, yeni hesap olusturunca mail onayi gerekir
+- Test icin istersen bunu gecici kapatabilirsin
+
+### 5. API bilgilerini bul
+
+Sol menuden:
+
+1. `Project Settings`
+2. `API`
+
+Bu sayfada birden fazla kisim goreceksin.
+
+#### Aradigin bilgi 1: Project URL
+
+Sayfada `Project URL` veya benzer sekmede su tip bir deger olur:
+
+```text
+https://abcxyzcompany.supabase.co
+```
+
+Bunu kopyala.
+
+#### Aradigin bilgi 2: Publishable key
+
+API ekraninda genelde iki mantik vardir:
+
+- `API Keys`
+- `Legacy API Keys`
+
+Senin bakacagin kisim:
+
+- `API Keys` icindeki `Publishable key`
+
+Eger `Publishable key` goruyorsan bunu kopyala.
+
+Bu anahtar genelde sunun gibi baslar:
+
+```text
+sb_publishable_...
+```
+
+#### Legacy sekmesinde ne var?
+
+`Legacy API Keys` altinda genelde su eski anahtarlar olur:
+
+- `anon`
+- `service_role`
+
+Burada:
+
+- `anon`
+  Eski istemci anahtari
+- `service_role`
+  Asla frontend'e koyulmaz
+
+Bu projede tercih edilen:
+
+- `Publishable key`
+
+Yani ozet:
+
+- `Publishable key` al
+- `Legacy anon` alma
+- `service_role` kesinlikle alma
+
+## Supabase Config Dosyasini Nasil Dolduracaksin?
+
+[supabase-config.js](/Users/murathan/Desktop/Adsız/supabase-config.js) dosyasini ac.
+
+Simdi su sekilde duzenle:
+
+```js
+window.SUPABASE_CONFIG = {
+  url: "https://SENIN-PROJE.supabase.co",
+  anonKey: "sb_publishable_SENIN_ANAHTARIN"
+};
+```
+
+Burada `anonKey` alaninin ismi eski isim olarak kaldi ama icine yazacagin sey yeni `Publishable key` olacak.
+
+Yani kafa karistiran kisim su:
+
+- dosya icindeki alan adi: `anonKey`
+- ama koyacagin deger: `Publishable key`
+
+Bu teknik olarak sorun degil. Alan adini degistirmedik ama deger olarak publishable key kullaniyoruz.
+
+## Ornek
+
+Ornek doldurulmus hali:
+
+```js
+window.SUPABASE_CONFIG = {
+  url: "https://abcdwxyz.supabase.co",
+  anonKey: "sb_publishable_xxxxxxxxxxxxxxxxx"
+};
+```
+
+## Hangi Key'i Kesinlikle Kullanmamaliyim?
+
+Asagidakileri bu projeye koyma:
+
+- `service_role`
+- `secret key`
+
+Sebebi:
+
+- Bunlar tum veritabanina genis yetki verir
+- Tarayiciya koyarsan herkes gorebilir
+- Bu ciddi guvenlik hatasi olur
+
+## GitHub'a Nasil Yukleyeceksin?
+
+Eger repo hazirsa terminalde bu klasorde su sirayla:
+
+```bash
+git add .
+git commit -m "Supabase config and cloud auth setup"
+git push
+```
+
+Eger remote daha once eklenmediyse:
 
 ```bash
 git remote add origin REPO_URL
 git branch -M main
 git add .
-git commit -m "Supabase cloud sync added"
+git commit -m "Initial cloud version"
 git push -u origin main
 ```
 
-### 2. Supabase projesi olustur
+## GitHub Pages Nasil Acilir?
 
-1. [Supabase](https://supabase.com) uzerinde yeni proje olusturun.
-2. Proje acildiktan sonra su sayfalari kullanacaksiniz:
-   - `Project Settings > API`
-   - `Authentication > Providers`
-   - `SQL Editor`
+GitHub repo sayfasinda:
 
-### 3. Veritabani tablosunu olustur
+1. `Settings`
+2. Sol menude `Pages`
+3. `Source` olarak `Deploy from a branch`
+4. Branch olarak `main`
+5. Folder olarak `/root`
+6. `Save`
 
-`supabase-schema.sql` dosyasinin tamamini Supabase `SQL Editor` icine yapistirin ve calistirin.
+Birkac dakika sonra bir link verir.
 
-Bu dosya su isi yapar:
-
-- `app_user_data` tablosunu olusturur
-- Her kullaniciya sadece kendi verisini okuma/yazma izni verir
-
-### 4. E-posta sifre girisini ac
-
-Supabase panelinde:
-
-1. `Authentication > Providers > Email`
-2. `Enable Email provider` acik olsun
-3. Isterseniz e-posta dogrulamayi acik birakabilirsiniz
-
-Not:
-
-- E-posta dogrulamayi acik birakirsaniz yeni kullanici olusturduktan sonra mail onayi gerekir
-- Testi hizli yapmak istiyorsaniz gecici olarak mail onayini kapatabilirsiniz
-
-### 5. API bilgilerini projeye gir
-
-Supabase panelinde:
-
-1. `Project Settings > API`
-2. Su iki bilgiyi alin:
-   - `Project URL`
-   - `anon public key`
-
-Sonra bu projedeki `supabase-config.js` dosyasini acin ve doldurun:
-
-```js
-window.SUPABASE_CONFIG = {
-  url: "https://YOUR-PROJECT.supabase.co",
-  anonKey: "YOUR_SUPABASE_ANON_KEY"
-};
-```
-
-Onemli:
-
-- Buraya `service_role` key koymayin
-- Sadece `anon` key koyun
-- `anon` key istemci tarafinda kullanilmak icin tasarlanmistir
-
-### 6. Kodu tekrar GitHub'a gonder
-
-```bash
-git add .
-git commit -m "Configure Supabase project"
-git push
-```
-
-### 7. GitHub Pages ile yayinla
-
-GitHub repo ayarlarinda:
-
-1. `Settings > Pages`
-2. `Source` olarak `Deploy from a branch`
-3. Branch olarak `main`
-4. Folder olarak `/ (root)`
-5. Kaydedin
-
-Birkac dakika sonra GitHub size bir yayin linki verecek:
+Ornek:
 
 ```text
 https://kullaniciadi.github.io/repo-adi/
 ```
 
-## Uygulamada Nasil Kullanacaksiniz
+Bu senin canli siten olacak.
 
-### Ilk cihazda
+## Uygulamada Ilk Giris Nasil Yapilacak?
 
-1. Uygulamayi acin
-2. `Bulut Girisi` butonuna basin
-3. E-posta ve sifre ile `Hesap Olustur`
-4. Gerekirse e-posta onayi yapin
-5. Sonra `Giris Yap`
-6. Verileri kullanmaya baslayin
+Yayina aldiktan sonra:
 
-Bu andan sonra kayitlar Supabase'e yazilir.
+1. Siteyi ac
+2. Ustte `Bulut Girisi` butonuna bas
+3. E-posta gir
+4. Sifre gir
+5. `Hesap Olustur`
+6. Gerekirse mail onayi yap
+7. Sonra `Giris Yap`
 
-### Diger cihazda
+Giris yaptiginda:
 
-1. Ayni GitHub Pages linkini acin
-2. Ayni e-posta ve sifre ile giris yapin
-3. Veriler otomatik buluttan yuklenir
+- veri senin hesabin icin Supabase'e kaydedilir
+- diger cihazlardan ayni hesapla acabilirsin
 
-## Uygulamanin Yeni Bulut Davranisi
+## Diger Cihazda Nasil Acacaksin?
 
-- Kullanici giris yapmadiysa uygulama yerel modda calisir
-- Kullanici giris yaptiysa veri kaynagi bulut olur
-- Yerelde de onbellek tutulur
-- Cikis yapildiginda yerel gorunum temizlenir
+1. Ayni GitHub Pages linkini ac
+2. Ayni e-posta ve sifreyi gir
+3. `Giris Yap`
+4. Verilerin otomatik gelsin
 
-## Kod Icinde Ne Degisti
+## Kurulum Sonrasi Test
 
-- `index.html`
-  Supabase istemcisi, auth paneli, giris/hesap olusturma/cikis ve otomatik bulut kayit akisi eklendi.
-- `saveData()`
-  Artik hem local cache hem de bulut senkronu icin kullaniliyor.
-- `loadData()`
-  Yerel veriyi aciyor, sonra Supabase oturumu varsa kullaniciya ait veriyi cekiyor.
+Bu testi yap:
 
-## Supabase Tablo Yapisi
+1. Bir cihazdan giris yap
+2. Bir cari ekle
+3. Bir is kaydi ekle
+4. Bir odeme ekle
+5. Sayfayi yenile
+6. Kayitlar duruyor mu kontrol et
+7. Baska cihazdan ayni hesaba gir
+8. Ayni kayitlar geliyor mu kontrol et
 
-Tablo:
+## Bir Sorun Varsa En Olası Sebepler
 
-- `app_user_data`
+### 1. Publishable key yerine yanlis key koydun
 
-Alanlar:
+Dogrusu:
 
-- `user_id`
-  Supabase auth kullanici kimligi
-- `data`
-  Tum uygulama verisinin JSON hali
-- `updated_at`
-  Son guncelleme tarihi
+- `Publishable key`
 
-Bu yapinin avantaji:
+Yanlisi:
 
-- Mevcut tek dosyali uygulamayi hizli sekilde buluta tasir
-- Tum uygulama durumunu tek kayit olarak saklar
-- Ilk asamada kompleks tablo tasarimi gerektirmez
+- `service_role`
+- `secret`
 
-## Ben Simdi Ne Yapmaliyim
+### 2. SQL calistirilmadi
 
-Asagidaki sirayi birebir takip et:
+[supabase-schema.sql](/Users/murathan/Desktop/Adsız/supabase-schema.sql) dosyasi SQL Editor'de calismadiysa tablo yoktur.
 
-1. Supabase'de yeni proje ac
-2. `supabase-schema.sql` dosyasini SQL Editor'de calistir
-3. Email auth'u ac
-4. `Project URL` ve `anon key` bilgisini kopyala
-5. `supabase-config.js` dosyasina yapistir
-6. Degisiklikleri GitHub'a push et
-7. GitHub Pages'i ac
-8. Yayindaki linkten uygulamayi ac
-9. Hesap olustur
-10. Giris yap
-11. Baska cihazdan ayni hesapla giris yapip test et
+### 3. Email provider acik degil
 
-## Test Senaryosu
+`Authentication > Providers > Email` acik olmali.
 
-Yayin sonrasi su testi yapin:
+### 4. GitHub Pages eski surumu gosterebilir
 
-1. Bir cihazdan giris yapin
-2. Yeni cari ekleyin
-3. Bir is girin
-4. Bir odeme girin
-5. Tarayiciyi kapatin
-6. Baska cihazdan ayni hesapla giris yapin
-7. Ayni cari ve kayitlar gorunuyor mu kontrol edin
+Son commit'in yayinlandigindan emin ol.
 
-## Sonraki Asamada Yapilabilecek Iyilestirmeler
+## Bu Projede Simdilik Veriler Nasil Saklaniyor?
 
-Isterseniz ikinci asamada sunlari da yapabiliriz:
+Her kullanici icin Supabase'te tek bir JSON kaydi saklaniyor.
 
-- Rol bazli kullanici sistemi
-- Ortak firma ici birden fazla kullanici
-- Supabase Storage ile otomatik yedek dosyalari
-- PDF ve Excel raporlarini sunucu destekli hale getirme
-- Olay bazli audit log
-- Gercek coklu tablo muhasebe veritabani yapisi
+Avantajlari:
 
-## Not
+- hizli kurulur
+- mevcut uygulamayi bozmadan buluta tasir
+- tum cihazlarda ayni veri acilir
 
-Bu yapida `supabase-config.js` dosyasindaki `anon key` gizli degildir ve istemci tarafinda kullanilabilir. Gizli tutulmasi gereken tek anahtar `service_role` key'dir; onu kesinlikle bu projeye eklemeyin.
+Ileride istersek bunu daha profesyonel tablo yapiya da tasiyabiliriz:
+
+- `customers`
+- `transactions`
+- `expenses`
+- `closures`
+- `archives`
+
+Ama ilk asamada buna gerek yok.
+
+## Son Ozet
+
+Senin yapacagin en kritik 5 sey:
+
+1. Supabase proje ac
+2. [supabase-schema.sql](/Users/murathan/Desktop/Adsız/supabase-schema.sql) calistir
+3. `Authentication > Providers > Email` ac
+4. `Project Settings > API` icinden:
+   - `Project URL`
+   - `Publishable key`
+   al
+5. Bunlari [supabase-config.js](/Users/murathan/Desktop/Adsız/supabase-config.js) dosyasina yaz
+
+## Resmi Kaynaklar
+
+- [Understanding API keys - Supabase Docs](https://supabase.com/docs/guides/api/api-keys)
+- [REST API - Supabase Docs](https://supabase.com/docs/guides/api)
+
+Resmi dokumana gore istemci tarafinda `Publishable key` kullanilmasi oneriliyor; `anon` legacy olarak geciyor ve `service_role` istemci tarafinda kullanilmamali.
