@@ -33,6 +33,9 @@
       background:linear-gradient(180deg,#eef4ff 0%, var(--bg) 100%);
       color:var(--text);
     }
+    body.auth-locked{
+      overflow:hidden;
+    }
 
     .container{
       max-width:1600px;
@@ -429,6 +432,110 @@
     .auth-box{
       margin-bottom:18px;
     }
+    .auth-gate{
+      position:fixed;
+      inset:0;
+      z-index:2000;
+      background:
+        radial-gradient(circle at top left, rgba(37,99,235,.18), transparent 35%),
+        radial-gradient(circle at bottom right, rgba(22,163,74,.16), transparent 30%),
+        linear-gradient(180deg,#eff6ff 0%, #f8fafc 100%);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+    }
+    .auth-gate.hidden{display:none}
+    .auth-gate-shell{
+      width:min(1080px,100%);
+      display:grid;
+      grid-template-columns:1.1fr .9fr;
+      gap:22px;
+      align-items:stretch;
+    }
+    .auth-hero{
+      background:linear-gradient(135deg,#0f172a 0%, #1d4ed8 55%, #60a5fa 100%);
+      color:#fff;
+      border-radius:26px;
+      padding:34px;
+      box-shadow:0 30px 70px rgba(15,23,42,.22);
+      min-height:640px;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+    }
+    .auth-hero h2{
+      font-size:42px;
+      line-height:1.05;
+      margin-bottom:14px;
+    }
+    .auth-hero p{
+      color:rgba(255,255,255,.82);
+      max-width:520px;
+      font-size:16px;
+      line-height:1.6;
+    }
+    .auth-hero-grid{
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:14px;
+      margin-top:24px;
+    }
+    .auth-hero-card{
+      background:rgba(255,255,255,.12);
+      border:1px solid rgba(255,255,255,.18);
+      border-radius:18px;
+      padding:16px;
+      backdrop-filter: blur(6px);
+    }
+    .auth-panel{
+      background:#fff;
+      border-radius:26px;
+      box-shadow:0 30px 70px rgba(15,23,42,.12);
+      border:1px solid rgba(229,231,235,.9);
+      padding:28px;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+    }
+    .auth-tabs{
+      display:inline-flex;
+      gap:8px;
+      padding:6px;
+      background:#eff6ff;
+      border-radius:999px;
+      margin-bottom:18px;
+    }
+    .auth-tabs button{
+      border:none;
+      background:transparent;
+      padding:10px 16px;
+      border-radius:999px;
+      font-weight:700;
+      cursor:pointer;
+      color:#1e3a8a;
+    }
+    .auth-tabs button.active{
+      background:#fff;
+      color:#111827;
+      box-shadow:var(--shadow);
+    }
+    .auth-panel h3{
+      font-size:28px;
+      margin-bottom:8px;
+    }
+    .auth-panel .subtitle{
+      margin-bottom:18px;
+    }
+    .auth-note{
+      margin-top:14px;
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.6;
+    }
+    .app-shell.hidden{
+      display:none;
+    }
 
     .hidden{display:none !important}
 
@@ -566,6 +673,8 @@
       .grid.cols-main{grid-template-columns:1fr}
       .sidebar{position:static}
       .grid.cols-4,.grid.cols-3,.grid.cols-2,.fields,.fields.three,.fields.four,.summary-strip,.analysis-grid{grid-template-columns:1fr}
+      .auth-gate-shell{grid-template-columns:1fr}
+      .auth-hero{min-height:auto}
     }
 
     @media print{
@@ -579,7 +688,61 @@
   <script src="./supabase-config.js"></script>
 </head>
 <body>
-  <div class="container">
+  <div class="auth-gate hidden" id="authGate">
+    <div class="auth-gate-shell">
+      <div class="auth-hero">
+        <div>
+          <div class="badge-soft" style="background:rgba(255,255,255,.12);color:#fff;">Bulut destekli cari takip</div>
+          <h2>Cari takibini her cihazda ayni hesapla yonetin.</h2>
+          <p>Supabase ile giris yaptiktan sonra cari, is, odeme, borc, kasa ve analiz verileriniz hesabiniza ozel olarak saklanir. Ofiste, telefonda veya farkli bilgisayarda ayni veriye kaldiginiz yerden devam edersiniz.</p>
+          <div class="auth-hero-grid">
+            <div class="auth-hero-card">
+              <strong>Canli Senkron Mantigi</strong>
+              <div style="margin-top:8px;font-size:14px;color:rgba(255,255,255,.82);">Tek cihazdaki degisiklikler ayni hesapla diger cihazlardan da acilir.</div>
+            </div>
+            <div class="auth-hero-card">
+              <strong>Muhasebe Odakli</strong>
+              <div style="margin-top:8px;font-size:14px;color:rgba(255,255,255,.82);">Ciro, gider, mahsup, kasa, ekstre ve analiz ayni veri tabanindan beslenir.</div>
+            </div>
+          </div>
+        </div>
+        <div style="font-size:13px;color:rgba(255,255,255,.78);">Giris yapildiginda uygulama dogrudan hesabinizdaki son verileri yukler.</div>
+      </div>
+
+      <div class="auth-panel">
+        <div class="auth-tabs">
+          <button id="authTabSignin" class="active" type="button" onclick="setAuthMode('signin')">Giris Yap</button>
+          <button id="authTabSignup" type="button" onclick="setAuthMode('signup')">Kayit Ol</button>
+        </div>
+
+        <h3 id="authGateTitle">Hesabiniza giris yapin</h3>
+        <div class="subtitle" id="authGateSubtitle">Ayni e-posta ve sifreyle tum cihazlarinizda verilerinize erisin.</div>
+
+        <div class="field hidden" id="authNameField">
+          <label>Kullanici Adi</label>
+          <input id="authDisplayName" type="text" placeholder="Orn: Murathan Cetin">
+        </div>
+
+        <div class="field" style="margin-top:14px;">
+          <label>E-posta</label>
+          <input id="authEmail" type="email" placeholder="ornek@mail.com">
+        </div>
+        <div class="field" style="margin-top:14px;">
+          <label>Şifre</label>
+          <input id="authPassword" type="password" placeholder="En az 6 karakter">
+        </div>
+
+        <div class="action-row" style="margin-top:18px;">
+          <button class="btn" id="authPrimaryBtn" type="button" onclick="handleAuthPrimaryAction()">Giris Yap</button>
+          <button class="btn secondary" id="authSecondaryBtn" type="button" onclick="toggleAuthMode()">Kayit Ekranina Gec</button>
+        </div>
+
+        <div class="auth-note" id="cloudStatusText">Supabase yapilandirmasi tamamsa giris ekranini kullanabilirsiniz.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container app-shell" id="appShell">
     <div class="topbar no-print">
       <div class="brand">
         <div class="brand-badge">₺</div>
@@ -609,32 +772,25 @@
     <div class="card no-print auth-box hidden" id="authPanel">
       <div class="section-title">
         <div>
-          <h2>Bulut Girişi ve Senkron</h2>
-          <div class="subtitle">Supabase ile e-posta ve şifre kullanarak tüm cihazlarda aynı veriye erişin</div>
+          <h2>Bulut Hesabı</h2>
+          <div class="subtitle">Oturum durumu, senkron ve hesap bilginiz burada görünür</div>
         </div>
       </div>
 
       <div class="info-note" style="margin-bottom:14px;">
-        Giriş yaptıktan sonra bu uygulamadaki tüm kayıtlar hesabınıza özel olarak Supabase veritabanında saklanır. Aynı e-posta ve şifre ile başka cihazda giriş yaptığınızda veriler otomatik gelir.
+        Giris yapildiginda uygulama Supabase veritabaniyla calisir. Buradan mevcut oturum durumunu gorebilir, senkronu manuel tetikleyebilir veya cikis yapabilirsiniz.
       </div>
-
       <div class="fields">
         <div class="field">
-          <label>E-posta</label>
-          <input id="authEmail" type="email" placeholder="ornek@mail.com">
+          <label>Kullanici Adi</label>
+          <input id="accountDisplayName" type="text" placeholder="Kullanici adiniz">
         </div>
         <div class="field">
-          <label>Şifre</label>
-          <input id="authPassword" type="password" placeholder="En az 6 karakter">
+          <label>E-posta</label>
+          <input id="accountEmail" type="text" readonly>
         </div>
       </div>
-
-      <div class="action-row" style="margin-top:16px;">
-        <button class="btn" onclick="signInWithPassword()">Giriş Yap</button>
-        <button class="btn secondary" onclick="signUpWithPassword()">Hesap Oluştur</button>
-      </div>
-
-      <div class="footer-note" id="cloudStatusText" style="margin-top:12px;">Supabase yapılandırması yapılırsa bulut senkronu aktif olur.</div>
+      <div class="footer-note" style="margin-top:12px;">Guncel oturum ve bulut durumu ust bardaki rozetle de gorunur.</div>
     </div>
 
     <div class="grid cols-4 no-print" style="margin-bottom:18px;">
@@ -1549,6 +1705,45 @@
               <button class="btn" onclick="saveSettings()">Ayarları Kaydet</button>
             </div>
 
+            <div class="card" style="box-shadow:none; margin-top:18px;">
+              <div class="section-title" style="margin-bottom:10px;">
+                <div>
+                  <h3>Hesap Güvenliği</h3>
+                  <div class="subtitle">Supabase hesabinizdaki kullanici adi ve sifreyi buradan guncelleyebilirsiniz</div>
+                </div>
+              </div>
+
+              <div class="fields">
+                <div class="field">
+                  <label>Kullanici Adi</label>
+                  <input id="settingsDisplayName" type="text" placeholder="Kullanici adiniz">
+                </div>
+                <div class="field">
+                  <label>Giris E-postasi</label>
+                  <input id="settingsAccountEmail" type="text" readonly>
+                </div>
+              </div>
+
+              <div class="action-row" style="margin-top:14px;">
+                <button class="btn secondary" type="button" onclick="saveAccountProfile()">Kullanici Adini Guncelle</button>
+              </div>
+
+              <div class="fields" style="margin-top:18px;">
+                <div class="field">
+                  <label>Yeni Şifre</label>
+                  <input id="settingsNewPassword" type="password" placeholder="Yeni sifreniz">
+                </div>
+                <div class="field">
+                  <label>Yeni Şifre Tekrar</label>
+                  <input id="settingsNewPasswordConfirm" type="password" placeholder="Yeni sifre tekrar">
+                </div>
+              </div>
+
+              <div class="action-row" style="margin-top:14px;">
+                <button class="btn warning" type="button" onclick="changeAccountPassword()">Şifreyi Değiştir</button>
+              </div>
+            </div>
+
             <div class="toggle-box" style="margin-top:18px;">
               <div class="toggle-head">
                 <div>
@@ -1759,6 +1954,7 @@
     let authInitialized = false;
     let cloudSaveTimer = null;
     let suppressCloudSave = false;
+    let authMode = "signin";
 
     function blankAppData(){
       return {
@@ -1961,20 +2157,65 @@
       }
     }
 
+    function getUserDisplayName(){
+      return currentUser?.user_metadata?.display_name || currentUser?.email || "";
+    }
+
+    function updateAppVisibility(){
+      const locked = hasValidSupabaseConfig() && !currentUser;
+      document.body.classList.toggle("auth-locked", locked);
+      document.getElementById("authGate").classList.toggle("hidden", !locked);
+      document.getElementById("appShell").classList.toggle("hidden", locked);
+    }
+
+    function setAuthMode(mode){
+      authMode = mode === "signup" ? "signup" : "signin";
+      const signup = authMode === "signup";
+      document.getElementById("authTabSignin").classList.toggle("active", !signup);
+      document.getElementById("authTabSignup").classList.toggle("active", signup);
+      document.getElementById("authNameField").classList.toggle("hidden", !signup);
+      document.getElementById("authGateTitle").textContent = signup ? "Yeni hesap olusturun" : "Hesabiniza giris yapin";
+      document.getElementById("authGateSubtitle").textContent = signup
+        ? "Kullanici adi, e-posta ve sifre ile Supabase hesabinizi olusturun."
+        : "Ayni e-posta ve sifreyle tum cihazlarinizda verilerinize erisin.";
+      document.getElementById("authPrimaryBtn").textContent = signup ? "Hesap Olustur" : "Giris Yap";
+      document.getElementById("authSecondaryBtn").textContent = signup ? "Giris Ekranina Gec" : "Kayit Ekranina Gec";
+    }
+
+    function toggleAuthMode(){
+      setAuthMode(authMode === "signin" ? "signup" : "signin");
+    }
+
+    async function handleAuthPrimaryAction(){
+      if(authMode === "signup") return signUpWithPassword();
+      return signInWithPassword();
+    }
+
     function updateAuthUI(){
       const email = currentUser?.email || "";
+      const displayName = getUserDisplayName();
       document.getElementById("syncNowBtn").classList.toggle("hidden", !currentUser);
       document.getElementById("logoutBtn").classList.toggle("hidden", !currentUser);
       document.getElementById("authToggleBtn").textContent = currentUser ? "Bulut Hesabı" : "Bulut Girişi";
       if(!hasValidSupabaseConfig()){
         setCloudStatus("Yerel mod aktif. Supabase ayarı yapıldığında bulut senkronu açılır.", "off");
+        updateAppVisibility();
         return;
       }
       if(currentUser){
-        setCloudStatus(`Bulut bağlı: ${email}`, "ok");
+        setCloudStatus(`Bulut bağlı: ${displayName}`, "ok");
       }else{
         setCloudStatus("Bulut hazır. Giriş yapıldığında cihazlar arası senkron açılır.", "warn");
       }
+      const accountName = document.getElementById("accountDisplayName");
+      const accountEmail = document.getElementById("accountEmail");
+      const settingsName = document.getElementById("settingsDisplayName");
+      const settingsEmail = document.getElementById("settingsAccountEmail");
+      if(accountName) accountName.value = currentUser ? displayName : "";
+      if(accountEmail) accountEmail.value = currentUser ? email : "";
+      if(settingsName) settingsName.value = currentUser ? displayName : "";
+      if(settingsEmail) settingsEmail.value = currentUser ? email : "";
+      updateAppVisibility();
     }
 
     function toggleAuthPanel(){
@@ -2086,6 +2327,7 @@
         return;
       }
       document.getElementById("authPassword").value = "";
+      document.getElementById("authDisplayName").value = "";
       document.getElementById("authPanel").classList.add("hidden");
     }
 
@@ -2094,17 +2336,25 @@
         alert("Önce Supabase yapılandırmasını tamamlayın.");
         return;
       }
+      const displayName = document.getElementById("authDisplayName").value.trim();
       const email = document.getElementById("authEmail").value.trim();
       const password = document.getElementById("authPassword").value;
-      if(!email || !password){
-        alert("E-posta ve şifre zorunludur.");
+      if(!displayName || !email || !password){
+        alert("Kullanıcı adı, e-posta ve şifre zorunludur.");
         return;
       }
-      const { error } = await supabaseClient.auth.signUp({ email, password });
+      const { error } = await supabaseClient.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { display_name: displayName }
+        }
+      });
       if(error){
         alert(`Kayıt başarısız: ${error.message}`);
         return;
       }
+      document.getElementById("authDisplayName").value = "";
       alert("Hesap oluşturuldu. E-posta doğrulaması açıksa mailinizi onaylayıp giriş yapın.");
     }
 
@@ -2118,9 +2368,64 @@
       currentUser = null;
       localStorage.removeItem(STORAGE_KEY);
       appData = blankAppData();
+      setAuthMode("signin");
       renderAll();
       updateAuthUI();
       alert("Çıkış yapıldı. Yerel görünüm temizlendi.");
+    }
+
+    async function saveAccountProfile(){
+      if(!supabaseClient || !currentUser){
+        alert("Önce giriş yapmalısınız.");
+        return;
+      }
+      const displayName = document.getElementById("settingsDisplayName").value.trim();
+      if(!displayName){
+        alert("Kullanıcı adı boş bırakılamaz.");
+        return;
+      }
+      const { error } = await supabaseClient.auth.updateUser({
+        data: { display_name: displayName }
+      });
+      if(error){
+        alert(`Kullanıcı adı güncellenemedi: ${error.message}`);
+        return;
+      }
+      const session = await supabaseClient.auth.getSession();
+      currentUser = session.data.session?.user || currentUser;
+      updateAuthUI();
+      alert("Kullanıcı adı güncellendi.");
+    }
+
+    async function changeAccountPassword(){
+      if(!supabaseClient || !currentUser){
+        alert("Önce giriş yapmalısınız.");
+        return;
+      }
+      const nextPassword = document.getElementById("settingsNewPassword").value;
+      const confirmPassword = document.getElementById("settingsNewPasswordConfirm").value;
+      if(!nextPassword || !confirmPassword){
+        alert("Yeni şifre alanlarını doldurun.");
+        return;
+      }
+      if(nextPassword.length < 6){
+        alert("Yeni şifre en az 6 karakter olmalıdır.");
+        return;
+      }
+      if(nextPassword !== confirmPassword){
+        alert("Yeni şifre alanları birbiriyle uyuşmuyor.");
+        return;
+      }
+      const { error } = await supabaseClient.auth.updateUser({
+        password: nextPassword
+      });
+      if(error){
+        alert(`Şifre güncellenemedi: ${error.message}`);
+        return;
+      }
+      document.getElementById("settingsNewPassword").value = "";
+      document.getElementById("settingsNewPasswordConfirm").value = "";
+      alert("Şifre başarıyla güncellendi.");
     }
 
     function generateJobId(){
@@ -4484,6 +4789,7 @@
     }
 
     window.addEventListener("load", async ()=>{
+      setAuthMode("signin");
       await loadData();
       setupNav();
       setupSearchSelects();
