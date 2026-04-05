@@ -688,6 +688,68 @@
       font-size:12px;
     }
 
+    .cloud-panel{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      margin-bottom:16px;
+      background:linear-gradient(180deg,#f8fbff 0%,#ffffff 100%);
+    }
+    .cloud-status-left{
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+    .cloud-dot{
+      width:12px;height:12px;border-radius:50%;
+      background:#94a3b8;
+      box-shadow:0 0 0 4px rgba(148,163,184,.18);
+      flex:0 0 auto;
+    }
+    .cloud-dot.ok{background:#22c55e; box-shadow:0 0 0 4px rgba(34,197,94,.18);}
+    .cloud-dot.warn{background:#f59e0b; box-shadow:0 0 0 4px rgba(245,158,11,.18);}
+    .cloud-dot.off{background:#94a3b8; box-shadow:0 0 0 4px rgba(148,163,184,.18);}
+    .cloud-title{font-weight:800}
+    .cloud-meta{font-size:12px;color:#6b7280;margin-top:4px}
+    .cloud-status-actions{display:flex;gap:8px;flex-wrap:wrap}
+    .cloud-error-panel{background:#fff7ed;border-color:#fed7aa}
+
+    .recovery-modal{max-width:620px}
+
+    .toast-container{
+      position:fixed;
+      right:18px;
+      bottom:18px;
+      z-index:2500;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      max-width:min(420px,calc(100vw - 36px));
+    }
+    .toast{
+      background:#0f172a;
+      color:#fff;
+      border-radius:14px;
+      padding:12px 14px;
+      box-shadow:0 20px 40px rgba(15,23,42,.28);
+      display:flex;
+      gap:12px;
+      align-items:flex-start;
+    }
+    .toast.success{background:#15803d}
+    .toast.warn{background:#b45309}
+    .toast.error{background:#b91c1c}
+    .toast .toast-title{font-weight:800;margin-bottom:4px}
+    .toast .toast-body{font-size:13px;line-height:1.5}
+    .toast button{
+      background:transparent;
+      border:none;
+      color:#fff;
+      font-weight:700;
+      cursor:pointer;
+    }
+
     @media (max-width:1200px){
       .grid.cols-main{grid-template-columns:1fr}
       .sidebar{position:static}
@@ -762,6 +824,10 @@
       .auth-tabs button{flex:1}
       .section-title{gap:8px}
       .fields{grid-template-columns:1fr}
+      .cloud-panel{flex-direction:column; align-items:flex-start}
+      .cloud-status-actions{width:100%}
+      .cloud-status-actions .btn{width:100%}
+      .toast-container{right:12px; bottom:12px}
     }
 
     @media print{
@@ -842,7 +908,7 @@
           <button class="btn secondary hidden" id="authLocalBtn" type="button" onclick="enterLocalMode()">Yerel Modda Devam Et</button>
         </div>
 
-        <div class="auth-note" id="cloudStatusText">Supabase yapilandirmasi tamamsa giris ekranini kullanabilirsiniz.</div>
+        <div class="auth-note" id="authCloudStatusText">Supabase yapilandirmasi tamamsa giris ekranini kullanabilirsiniz.</div>
       </div>
     </div>
   </div>
@@ -865,6 +931,37 @@
           <input type="file" accept=".json" onchange="importJSON(event)" style="display:none;">
         </label>
         <button class="btn danger" onclick="resetAllData()">Tüm Verileri Sıfırla</button>
+      </div>
+    </div>
+
+    <div class="card no-print cloud-panel" id="cloudStatusPanel">
+      <div class="cloud-status-left">
+        <span class="cloud-dot off" id="cloudStatusDot"></span>
+        <div>
+          <div class="cloud-title" id="cloudStatusText">Bulut durumu bekleniyor...</div>
+          <div class="cloud-meta" id="cloudStatusMeta">Son eşitleme: -</div>
+        </div>
+      </div>
+      <div class="cloud-status-actions">
+        <button class="btn small secondary" type="button" onclick="syncCloudNow()">Şimdi Senkronize Et</button>
+        <button class="btn small warning hidden" id="cloudReauthBtn" type="button" onclick="openAuthGate()">Yeniden Giriş</button>
+        <button class="btn small danger hidden" id="cloudErrorBtn" type="button" onclick="toggleCloudErrorPanel()">Hata Detayı</button>
+      </div>
+    </div>
+
+    <div class="card no-print cloud-error-panel hidden" id="cloudErrorPanel">
+      <div class="section-title" style="margin-bottom:8px;">
+        <div>
+          <h3>Bulut Senkron Hatası</h3>
+          <div class="subtitle">Son hata detayları</div>
+        </div>
+      </div>
+      <div class="inline-box">
+        <div class="hint" id="cloudErrorDetail">Hata detayı yok.</div>
+      </div>
+      <div class="action-row" style="margin-top:12px;">
+        <button class="btn small secondary" type="button" onclick="toggleCloudErrorPanel()">Kapat</button>
+        <button class="btn small info" type="button" onclick="copyCloudError()">Detayı Kopyala</button>
       </div>
     </div>
 
@@ -1836,6 +1933,30 @@
                 <div id="yearArchivesList" style="margin-top:14px;"></div>
               </div>
             </div>
+
+            <div class="card" style="box-shadow:none; margin-top:18px;">
+              <div class="section-title" style="margin-bottom:10px;">
+                <div>
+                  <h3>Güvenlik & Günlükler</h3>
+                  <div class="subtitle">Kurtarma ve hata kayıtlarını buradan inceleyebilirsiniz</div>
+                </div>
+              </div>
+
+              <div class="inline-box" style="margin-bottom:12px;">
+                <div style="font-weight:700;">Yedek Geri Yükleme Geçmişi</div>
+                <div id="recoveryLogList" class="hint" style="margin-top:8px;">Kayıt bulunamadı.</div>
+              </div>
+
+              <div class="inline-box" style="margin-bottom:12px;">
+                <div style="font-weight:700;">Sessiz Hata Raporları</div>
+                <div id="errorLogList" class="hint" style="margin-top:8px;">Kayıt bulunamadı.</div>
+              </div>
+
+              <div class="action-row">
+                <button class="btn small secondary" type="button" onclick="exportSecurityLogs()">Günlükleri İndir</button>
+                <button class="btn small danger" type="button" onclick="clearSecurityLogs()">Günlükleri Temizle</button>
+              </div>
+            </div>
           </div>
         </section>
       </div>
@@ -2011,9 +2132,36 @@
     </div>
   </div>
 
+  <div class="modal-backdrop no-print" id="recoveryBackdrop" style="display:none;">
+    <div class="modal recovery-modal" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h3>Son Yedekten Kurtarma</h3>
+          <div class="subtitle">Yerel yedek bulundu. İsterseniz verileri geri yükleyebiliriz.</div>
+        </div>
+        <button class="icon-btn" onclick="dismissRecoveryPrompt()">✕</button>
+      </div>
+      <div class="inline-box">
+        <div class="hint" id="recoveryInfo">Yedek bilgisi okunuyor...</div>
+      </div>
+      <div class="action-row" style="margin-top:16px;">
+        <button class="btn success" type="button" onclick="restoreFromRecovery()">Son Yedekten Geri Yükle</button>
+        <button class="btn secondary" type="button" onclick="dismissRecoveryPrompt()">Bu kez yoksay</button>
+      </div>
+      <div class="footer-note">Bu işlem sadece yereldeki son yedeği geri yükler, bulut veriniz değişmez.</div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
   <script>
     const STORAGE_KEY = "cari_takip_app_v3";
+    const STORAGE_BACKUP_KEY = "cari_takip_backup_v1";
+    const USER_CACHE_PREFIX = "cari_takip_user_cache_";
     const AUTH_PREFS_KEY = "cari_auth_prefs_v1";
+    const RECOVERY_LOG_KEY = "cari_takip_recovery_log_v1";
+    const ERROR_LOG_KEY = "cari_takip_error_log_v1";
+    const CLOUD_ERROR_KEY = "cari_takip_cloud_error_v1";
     const SEARCH_SELECTS = {};
     const MONTH_NAMES = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
     const CLOUD_TABLE = "app_user_data";
@@ -2036,6 +2184,8 @@
     let localModeUnlocked = false;
     const AUTO_ENTER_ON_SESSION = true;
     let isSigningOut = false;
+    let sessionExpired = false;
+    let lastCloudError = null;
 
     function blankAppData(){
       return {
@@ -2066,16 +2216,116 @@
     }
 
     let appData = blankAppData();
+    let lastLocalSaveAt = "";
+
+    function getUserCacheKey(userId){
+      return `${USER_CACHE_PREFIX}${userId}`;
+    }
+
+    function safeParseJSON(raw){
+      if(!raw) return null;
+      try{
+        return JSON.parse(raw);
+      }catch(err){
+        return null;
+      }
+    }
+
+    function writeLocalBackup(){
+      try{
+        const payload = { data: appData, updatedAt: nowIso() };
+        localStorage.setItem(STORAGE_BACKUP_KEY, JSON.stringify(payload));
+      }catch(err){
+        console.warn("Yerel yedek yazılamadı", err);
+      }
+    }
+
+    function writeUserCache(userId){
+      if(!userId) return;
+      try{
+        const payload = { data: appData, updatedAt: nowIso() };
+        localStorage.setItem(getUserCacheKey(userId), JSON.stringify(payload));
+      }catch(err){
+        console.warn("Kullanıcı önbelleği yazılamadı", err);
+      }
+    }
+
+    function readUserCache(userId){
+      if(!userId) return null;
+      const raw = localStorage.getItem(getUserCacheKey(userId));
+      const parsed = safeParseJSON(raw);
+      if(parsed?.data && Array.isArray(parsed.data.cariler)) return parsed;
+      return null;
+    }
+
+    function readLocalData(){
+      const main = safeParseJSON(localStorage.getItem(STORAGE_KEY));
+      if(main && Array.isArray(main.cariler)) return main;
+      const backup = safeParseJSON(localStorage.getItem(STORAGE_BACKUP_KEY));
+      if(backup?.data && Array.isArray(backup.data.cariler)) return backup.data;
+      return null;
+    }
+
+    function hasMeaningfulData(data){
+      if(!data) return false;
+      const cariCount = Array.isArray(data.cariler) ? data.cariler.length : 0;
+      const expenseCount = Array.isArray(data.expenses) ? data.expenses.length : 0;
+      const jobCount = (data.cariler || []).reduce((sum, c)=> sum + (c.transactions || []).length, 0);
+      return cariCount > 0 || expenseCount > 0 || jobCount > 0;
+    }
+
+    function getBackupPayload(){
+      const payload = safeParseJSON(localStorage.getItem(STORAGE_BACKUP_KEY));
+      if(payload?.data && Array.isArray(payload.data.cariler)) return payload;
+      return null;
+    }
+
+    let pendingRecoveryPayload = null;
+
+    function showRecoveryPrompt(payload){
+      pendingRecoveryPayload = payload;
+      const info = document.getElementById("recoveryInfo");
+      if(info){
+        const updated = payload?.updatedAt ? formatDateTimeTR(payload.updatedAt) : "-";
+        const count = payload?.data?.cariler?.length || 0;
+        info.textContent = `Yedek tarihi: ${updated} • Cari sayısı: ${count}`;
+      }
+      const backdrop = document.getElementById("recoveryBackdrop");
+      if(backdrop) backdrop.style.display = "flex";
+    }
+
+    function dismissRecoveryPrompt(){
+      pendingRecoveryPayload = null;
+      const backdrop = document.getElementById("recoveryBackdrop");
+      if(backdrop) backdrop.style.display = "none";
+    }
+
+    function restoreFromRecovery(){
+      if(!pendingRecoveryPayload?.data) return dismissRecoveryPrompt();
+      appData = pendingRecoveryPayload.data;
+      ensureDefaults();
+      normalizeData();
+      saveData();
+      addRecoveryLog({
+        time: nowIso(),
+        note: "Yerel yedekten manuel geri yükleme"
+      });
+      dismissRecoveryPrompt();
+      showToast("success", "Yedek geri yüklendi", "Verileriniz başarıyla geri alındı.");
+    }
+
+    function evaluateRecoveryPrompt(){
+      const backup = getBackupPayload();
+      if(!backup?.data || !hasMeaningfulData(backup.data)) return;
+      if(hasMeaningfulData(appData)) return;
+      showRecoveryPrompt(backup);
+    }
 
     async function loadData(){
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if(saved){
-        try{
-          appData = JSON.parse(saved);
-        }catch(e){
-          console.error("Veri okunamadı", e);
-        }
-      }
+      const saved = readLocalData();
+      if(saved) appData = saved;
+      const backup = getBackupPayload();
+      if(backup?.updatedAt) lastLocalSaveAt = backup.updatedAt;
       ensureDefaults();
       normalizeData();
       await initSupabase();
@@ -2138,7 +2388,14 @@
     }
 
     function saveData(keepUI = true, options = {}){
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+      try{
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+      }catch(err){
+        console.warn("Yerel kayıt yapılamadı", err);
+      }
+      lastLocalSaveAt = nowIso();
+      writeLocalBackup();
+      if(currentUser) writeUserCache(currentUser.id);
       if(!options.skipCloud) queueCloudSave();
       if(keepUI) renderAll();
     }
@@ -2226,16 +2483,193 @@
       return !!(cfg.url && cfg.anonKey && !String(cfg.url).includes("YOUR_") && !String(cfg.anonKey).includes("YOUR_"));
     }
 
+    let lastCloudSyncAt = "";
+
     function setCloudStatus(message, tone = "off"){
-      const chipText = document.getElementById("authStatusText");
-      const chipDot = document.getElementById("authStatusDot");
+      const authText = document.getElementById("authCloudStatusText");
       const panelText = document.getElementById("cloudStatusText");
-      if(chipText) chipText.textContent = message;
+      const panelDot = document.getElementById("cloudStatusDot");
+      if(authText) authText.textContent = message;
       if(panelText) panelText.textContent = message;
-      if(chipDot){
-        chipDot.classList.remove("ok","warn","off");
-        chipDot.classList.add(tone);
+      if(panelDot){
+        panelDot.classList.remove("ok","warn","off");
+        panelDot.classList.add(tone);
       }
+      updateCloudMeta();
+    }
+
+    function updateCloudMeta(){
+      const meta = document.getElementById("cloudStatusMeta");
+      if(!meta) return;
+      meta.textContent = lastCloudSyncAt
+        ? `Son eşitleme: ${formatDateTimeTR(lastCloudSyncAt)}`
+        : "Son eşitleme: -";
+    }
+
+    function showToast(type, title, body){
+      const container = document.getElementById("toastContainer");
+      if(!container) return;
+      const toast = document.createElement("div");
+      toast.className = `toast ${type || ""}`.trim();
+      toast.innerHTML = `
+        <div>
+          <div class="toast-title">${escapeHtml(title || "Bilgi")}</div>
+          <div class="toast-body">${escapeHtml(body || "")}</div>
+        </div>
+        <button type="button" aria-label="Kapat">✕</button>
+      `;
+      const closeBtn = toast.querySelector("button");
+      if(closeBtn) closeBtn.addEventListener("click", ()=> toast.remove());
+      container.appendChild(toast);
+      setTimeout(()=>toast.remove(), 7000);
+    }
+
+    function reportError(message, detail){
+      const body = detail ? `${message} • ${detail}` : message;
+      showToast("error", "Bir hata oluştu", body);
+      logAppError("ui", message, detail);
+    }
+
+    function readLog(key){
+      const parsed = safeParseJSON(localStorage.getItem(key));
+      return Array.isArray(parsed) ? parsed : [];
+    }
+
+    function writeLog(key, entries){
+      localStorage.setItem(key, JSON.stringify(entries.slice(0, 80)));
+    }
+
+    function addRecoveryLog(entry){
+      const list = readLog(RECOVERY_LOG_KEY);
+      list.unshift(entry);
+      writeLog(RECOVERY_LOG_KEY, list);
+      renderRecoveryLog();
+    }
+
+    function addErrorLog(entry){
+      const list = readLog(ERROR_LOG_KEY);
+      list.unshift(entry);
+      writeLog(ERROR_LOG_KEY, list);
+      renderErrorLog();
+    }
+
+    function logAppError(source, message, detail){
+      const entry = {
+        time: nowIso(),
+        source,
+        message: String(message || "Hata"),
+        detail: detail ? String(detail) : ""
+      };
+      addErrorLog(entry);
+    }
+
+    function setCloudError(error, context){
+      lastCloudError = {
+        time: nowIso(),
+        context: context || "cloud",
+        message: String(error?.message || error || "Bulut hatası"),
+        detail: error?.details || error?.hint || ""
+      };
+      localStorage.setItem(CLOUD_ERROR_KEY, JSON.stringify(lastCloudError));
+      const btn = document.getElementById("cloudErrorBtn");
+      if(btn) btn.classList.toggle("hidden", !lastCloudError);
+      updateCloudErrorPanel();
+      logAppError("cloud", lastCloudError.message, lastCloudError.detail);
+    }
+
+    function loadCloudError(){
+      const stored = safeParseJSON(localStorage.getItem(CLOUD_ERROR_KEY));
+      if(stored?.message){
+        lastCloudError = stored;
+        const btn = document.getElementById("cloudErrorBtn");
+        if(btn) btn.classList.toggle("hidden", false);
+        updateCloudErrorPanel();
+      }
+    }
+
+    function updateCloudErrorPanel(){
+      const detail = document.getElementById("cloudErrorDetail");
+      if(!detail){
+        return;
+      }
+      if(!lastCloudError){
+        detail.textContent = "Hata detayı yok.";
+        return;
+      }
+      const timeText = lastCloudError.time ? formatDateTimeTR(lastCloudError.time) : "-";
+      detail.textContent = `Tarih: ${timeText} • Kaynak: ${lastCloudError.context} • Mesaj: ${lastCloudError.message} ${lastCloudError.detail ? "• " + lastCloudError.detail : ""}`;
+    }
+
+    function toggleCloudErrorPanel(){
+      const panel = document.getElementById("cloudErrorPanel");
+      if(!panel) return;
+      panel.classList.toggle("hidden");
+    }
+
+    function copyCloudError(){
+      if(!lastCloudError){
+        showToast("warn", "Kopyalanacak veri yok", "Bulut hata detayı bulunamadı.");
+        return;
+      }
+      const text = JSON.stringify(lastCloudError, null, 2);
+      navigator.clipboard?.writeText(text).then(()=>{
+        showToast("success", "Kopyalandı", "Bulut hata detayı panoya alındı.");
+      }).catch(()=>{
+        showToast("warn", "Kopyalanamadı", "Panoya erişim sağlanamadı.");
+      });
+    }
+
+    function renderRecoveryLog(){
+      const container = document.getElementById("recoveryLogList");
+      if(!container) return;
+      const list = readLog(RECOVERY_LOG_KEY);
+      if(list.length === 0){
+        container.textContent = "Kayıt bulunamadı.";
+        return;
+      }
+      container.innerHTML = list.slice(0, 8).map(item=>{
+        const time = formatDateTimeTR(item.time);
+        const note = escapeHtml(item.note || "");
+        return `<div>• ${time} ${note ? "— " + note : ""}</div>`;
+      }).join("");
+    }
+
+    function renderErrorLog(){
+      const container = document.getElementById("errorLogList");
+      if(!container) return;
+      const list = readLog(ERROR_LOG_KEY);
+      if(list.length === 0){
+        container.textContent = "Kayıt bulunamadı.";
+        return;
+      }
+      container.innerHTML = list.slice(0, 8).map(item=>{
+        const time = formatDateTimeTR(item.time);
+        const msg = escapeHtml(item.message || "");
+        return `<div>• ${time} — ${msg}</div>`;
+      }).join("");
+    }
+
+    function exportSecurityLogs(){
+      const payload = {
+        recovery: readLog(RECOVERY_LOG_KEY),
+        errors: readLog(ERROR_LOG_KEY),
+        cloud: lastCloudError
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type:"application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "cari_takip_guvenlik_loglari.json";
+      a.click();
+      setTimeout(()=>URL.revokeObjectURL(a.href), 500);
+    }
+
+    function clearSecurityLogs(){
+      if(!confirm("Tüm günlükleri temizlemek istediğinize emin misiniz?")) return;
+      localStorage.removeItem(RECOVERY_LOG_KEY);
+      localStorage.removeItem(ERROR_LOG_KEY);
+      renderRecoveryLog();
+      renderErrorLog();
+      showToast("success", "Günlükler temizlendi", "Tüm kayıtlar silindi.");
     }
 
     function getUserDisplayName(){
@@ -2339,6 +2773,11 @@
       updateAppVisibility();
     }
 
+    function openAuthGate(){
+      appUnlocked = false;
+      updateAppVisibility();
+    }
+
     function enterLocalMode(){
       localModeUnlocked = true;
       setCloudStatus("Yerel modda devam ediliyor. Bulut senkronu pasif.", "off");
@@ -2414,6 +2853,7 @@
       const authSecondaryBtn = document.getElementById("authSecondaryBtn");
       const authGithubBtn = document.getElementById("authGithubBtn");
       const authLocalBtn = document.getElementById("authLocalBtn");
+      const reauthBtn = document.getElementById("cloudReauthBtn");
 
       if(authGithubBtn) authGithubBtn.classList.toggle("hidden", !configOk);
       if(authLocalBtn) authLocalBtn.classList.toggle("hidden", configOk);
@@ -2421,12 +2861,18 @@
       if(authPrimaryBtn) authPrimaryBtn.disabled = false;
       if(authSecondaryBtn) authSecondaryBtn.disabled = false;
       if(authGithubBtn) authGithubBtn.disabled = false;
+      if(reauthBtn) reauthBtn.classList.toggle("hidden", !sessionExpired);
 
       document.getElementById("logoutBtn").classList.toggle("hidden", !currentUser);
       document.getElementById("authContinueBtn").classList.toggle("hidden", authMode === "signup" || !currentUser);
       document.getElementById("authSwitchAccountBtn").classList.toggle("hidden", !currentUser);
       if(currentUser && AUTO_ENTER_ON_SESSION){
         appUnlocked = true;
+      }
+      if(sessionExpired && !currentUser){
+        setCloudStatus("Oturum süresi doldu. Verileriniz yerelde korunur, bulut senkronu için tekrar giriş yapın.", "warn");
+        updateAppVisibility();
+        return;
       }
       if(!configOk){
         setCloudStatus("Supabase yapılandırması bulunamadı. Giriş için supabase-config.js dosyasını doldurun veya yerel modda devam edin.", "off");
@@ -2462,9 +2908,16 @@
         currentUser = session?.user || null;
         if(event === "SIGNED_IN" && AUTO_ENTER_ON_SESSION){
           appUnlocked = true;
+          sessionExpired = false;
         }
         if(event === "SIGNED_OUT"){
-          appUnlocked = false;
+          if(isSigningOut){
+            appUnlocked = false;
+            sessionExpired = false;
+          }else{
+            sessionExpired = true;
+            appUnlocked = true;
+          }
         }
         updateAuthUI();
         if(currentUser){
@@ -2482,6 +2935,7 @@
       currentUser = data.session?.user || null;
       if(currentUser && AUTO_ENTER_ON_SESSION){
         appUnlocked = true;
+        sessionExpired = false;
       }
       updateAuthUI();
       if(currentUser) await pullCloudData();
@@ -2492,13 +2946,24 @@
       setCloudStatus(`Bulut verisi okunuyor: ${currentUser.email}`, "warn");
       const { data, error } = await supabaseClient
         .from(CLOUD_TABLE)
-        .select("data")
+        .select("data, updated_at")
         .eq("user_id", currentUser.id)
         .maybeSingle();
 
       if(error){
         console.error("Bulut verisi okunamadı", error);
         setCloudStatus("Bulut verisi okunamadı.", "warn");
+        setCloudError(error, "pull");
+        const cached = readUserCache(currentUser.id);
+        if(cached?.data){
+          suppressCloudSave = true;
+          appData = cached.data;
+          ensureDefaults();
+          normalizeData();
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+          suppressCloudSave = false;
+          setCloudStatus("Buluta erişilemedi. Yerel yedekten veri yüklendi.", "warn");
+        }
         return;
       }
 
@@ -2509,14 +2974,29 @@
         normalizeData();
         localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
         suppressCloudSave = false;
+        lastCloudSyncAt = data.updated_at || nowIso();
         setCloudStatus(`Buluttan veri yüklendi: ${currentUser.email}`, "ok");
+        writeUserCache(currentUser.id);
       }else{
-        await pushCloudData();
+        const cached = readUserCache(currentUser.id);
+        if(cached?.data){
+          suppressCloudSave = true;
+          appData = cached.data;
+          ensureDefaults();
+          normalizeData();
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+          suppressCloudSave = false;
+          lastCloudSyncAt = cached.updatedAt || nowIso();
+          setCloudStatus("Bulutta veri bulunamadı. Yerel yedekten geri yüklendi.", "warn");
+          await pushCloudData();
+        }else{
+          await pushCloudData();
+        }
       }
     }
 
     function queueCloudSave(){
-      if(suppressCloudSave || !supabaseClient || !currentUser) return;
+      if(suppressCloudSave || !supabaseClient || !currentUser || sessionExpired) return;
       clearTimeout(cloudSaveTimer);
       cloudSaveTimer = setTimeout(()=>{ pushCloudData(); }, 700);
     }
@@ -2533,12 +3013,20 @@
       if(error){
         console.error("Bulut kaydı başarısız", error);
         setCloudStatus("Bulut kaydı başarısız oldu.", "warn");
+        setCloudError(error, "push");
         return;
       }
+      lastCloudSyncAt = payload.updated_at;
+      writeUserCache(currentUser.id);
       setCloudStatus(`Bulut eşitlendi: ${currentUser.email}`, "ok");
     }
 
     async function syncCloudNow(){
+      if(sessionExpired){
+        showToast("warn", "Oturum Kapalı", "Bulut eşitlemek için yeniden giriş yapın.");
+        setCloudError("Oturum kapalı", "manual-sync");
+        return;
+      }
       await pushCloudData();
     }
 
@@ -2636,7 +3124,6 @@
         currentUser = null;
         appUnlocked = false;
         localModeUnlocked = false;
-        localStorage.removeItem(STORAGE_KEY);
         appData = blankAppData();
         setAuthMode("signin");
         renderAll();
@@ -2766,6 +3253,18 @@
       const p = String(dateStr).split("-");
       if(p.length !== 3) return dateStr;
       return `${p[2]}.${p[1]}.${p[0]}`;
+    }
+
+    function formatDateTimeTR(iso){
+      if(!iso) return "-";
+      const d = new Date(iso);
+      if(Number.isNaN(d.getTime())) return iso;
+      const day = String(d.getDate()).padStart(2,"0");
+      const month = String(d.getMonth()+1).padStart(2,"0");
+      const year = d.getFullYear();
+      const hour = String(d.getHours()).padStart(2,"0");
+      const min = String(d.getMinutes()).padStart(2,"0");
+      return `${day}.${month}.${year} ${hour}:${min}`;
     }
 
     function dateDiffInDays(dateA, dateB){
@@ -5032,6 +5531,10 @@
       document.getElementById("financeToggleBtn").classList.toggle("active", isFinancialVisible());
       document.getElementById("financeToggleBtn").textContent = isFinancialVisible() ? "🙈" : "👁️";
       document.getElementById("logoutBtn").classList.toggle("hidden", !currentUser);
+      renderRecoveryLog();
+      renderErrorLog();
+      updateCloudErrorPanel();
+      updateCloudMeta();
 
       if(currentDetailCariId) renderCariDetailIntoModal(currentDetailCariId);
     }
@@ -5067,6 +5570,40 @@
       });
 
       document.getElementById("modalBackdrop").addEventListener("click", closeModal);
+
+      const recoveryBackdrop = document.getElementById("recoveryBackdrop");
+      if(recoveryBackdrop){
+        recoveryBackdrop.addEventListener("click", dismissRecoveryPrompt);
+      }
+
+      window.addEventListener("error", (event)=>{
+        reportError("Beklenmeyen bir hata yakalandı.", event?.message || "");
+      });
+      window.addEventListener("unhandledrejection", (event)=>{
+        reportError("İşlem tamamlanamadı.", event?.reason?.message || String(event?.reason || ""));
+      });
+    }
+
+    function setupSessionWatchdog(){
+      if(!supabaseClient) return;
+      document.addEventListener("visibilitychange", async ()=>{
+        if(document.visibilityState !== "visible") return;
+        try{
+          const { data, error } = await supabaseClient.auth.getSession();
+          if(error){
+            console.warn("Oturum kontrolü başarısız", error);
+            return;
+          }
+          if(data?.session?.user){
+            currentUser = data.session.user;
+            sessionExpired = false;
+            appUnlocked = true;
+            updateAuthUI();
+          }
+        }catch(err){
+          console.warn("Oturum kontrolü hatası", err);
+        }
+      });
     }
 
     function setupAuthForm(){
@@ -5097,7 +5634,10 @@
       setupSearchSelects();
       setupGlobalEvents();
       setupAuthForm();
+      setupSessionWatchdog();
+      loadCloudError();
       renderAll();
+      evaluateRecoveryPrompt();
     });
   </script>
 </body>
