@@ -736,6 +736,7 @@
           <button class="btn" id="authPrimaryBtn" type="button" onclick="handleAuthPrimaryAction()">Giris Yap</button>
           <button class="btn secondary" id="authSecondaryBtn" type="button" onclick="toggleAuthMode()">Kayit Ekranina Gec</button>
           <button class="btn success hidden" id="authContinueBtn" type="button" onclick="enterApplication()">Uygulamaya Gec</button>
+          <button class="btn danger hidden" id="authSwitchAccountBtn" type="button" onclick="prepareFreshAccountFlow()">Baska Hesap Kullan</button>
         </div>
 
         <div class="auth-note" id="cloudStatusText">Supabase yapilandirmasi tamamsa giris ekranini kullanabilirsiniz.</div>
@@ -2162,6 +2163,25 @@
       return currentUser?.user_metadata?.display_name || currentUser?.email || "";
     }
 
+    function formatAuthError(error, mode = "signin"){
+      const message = String(error?.message || "").toLowerCase();
+      if(message.includes("invalid login credentials")) return "E-posta veya şifre hatalı. Bilgilerinizi kontrol edip tekrar deneyin.";
+      if(message.includes("email rate limit exceeded")) return "Çok kısa sürede fazla kayıt denemesi yapıldı. 60 saniye bekleyip tekrar deneyin. Eğer bu e-posta ile daha önce hesap açtıysanız giriş yapın.";
+      if(message.includes("user already registered")) return "Bu e-posta ile daha önce hesap oluşturulmuş. Giriş Yap sekmesinden devam edin.";
+      if(message.includes("password should be at least")) return "Şifre en az 6 karakter olmalıdır.";
+      if(message.includes("email not confirmed")) return "E-posta doğrulaması bekleniyor. Mail kutunuzu kontrol edip hesabınızı onaylayın.";
+      if(message.includes("for security purposes")) return mode === "signup"
+        ? "Kayıt denemesi geçici olarak sınırlandı. Kısa bir süre sonra tekrar deneyin."
+        : "Çok fazla deneme yapıldı. Kısa bir süre bekleyip tekrar deneyin.";
+      return error?.message || "İşlem sırasında beklenmeyen bir hata oluştu.";
+    }
+
+    function clearAuthInputs(keepEmail = false){
+      if(!keepEmail) document.getElementById("authEmail").value = "";
+      document.getElementById("authPassword").value = "";
+      document.getElementById("authDisplayName").value = "";
+    }
+
     function updateAppVisibility(){
       const locked = hasValidSupabaseConfig() ? !appUnlocked : false;
       document.body.classList.toggle("auth-locked", locked);
@@ -2186,10 +2206,32 @@
         : "Ayni e-posta ve sifreyle tum cihazlarinizda verilerinize erisin.";
       document.getElementById("authPrimaryBtn").textContent = signup ? "Hesap Olustur" : "Giris Yap";
       document.getElementById("authSecondaryBtn").textContent = signup ? "Giris Ekranina Gec" : "Kayit Ekranina Gec";
+      document.getElementById("authContinueBtn").classList.toggle("hidden", signup || !currentUser);
+      document.getElementById("authSwitchAccountBtn").classList.toggle("hidden", !currentUser);
+      if(signup && currentUser){
+        setCloudStatus("Bu tarayicida acik bir oturum var. Yeni hesap acmak icin once 'Baska Hesap Kullan' ile cikis yapin.", "warn");
+      }else if(!currentUser){
+        setCloudStatus("Giris yaptiktan sonra verileriniz otomatik olarak buluta kaydedilir.", "warn");
+      }
     }
 
     function toggleAuthMode(){
       setAuthMode(authMode === "signin" ? "signup" : "signin");
+    }
+
+    async function prepareFreshAccountFlow(){
+      if(currentUser && supabaseClient){
+        const { error } = await supabaseClient.auth.signOut();
+        if(error){
+          setCloudStatus(formatAuthError(error, "signin"), "warn");
+          return;
+        }
+      }
+      currentUser = null;
+      appUnlocked = false;
+      clearAuthInputs();
+      setAuthMode("signup");
+      updateAuthUI();
     }
 
     async function handleAuthPrimaryAction(){
@@ -2202,7 +2244,8 @@
       const displayName = getUserDisplayName();
       document.getElementById("logoutBtn").classList.toggle("hidden", !currentUser);
       document.getElementById("authToggleBtn").textContent = currentUser ? "Bulut Hesabı" : "Bulut Girişi";
-      document.getElementById("authContinueBtn").classList.toggle("hidden", !currentUser);
+      document.getElementById("authContinueBtn").classList.toggle("hidden", authMode === "signup" || !currentUser);
+      document.getElementById("authSwitchAccountBtn").classList.toggle("hidden", !currentUser);
       if(!hasValidSupabaseConfig()){
         setCloudStatus("Yerel mod aktif. Supabase ayarı yapıldığında bulut senkronu açılır.", "off");
         updateAppVisibility();
@@ -2326,31 +2369,34 @@
       const email = document.getElementById("authEmail").value.trim();
       const password = document.getElementById("authPassword").value;
       if(!email || !password){
-        alert("E-posta ve şifre zorunludur.");
+        setCloudStatus("E-posta ve şifre zorunludur.", "warn");
         return;
       }
       const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
       if(error){
-        alert(`Giriş başarısız: ${error.message}`);
+        setCloudStatus(formatAuthError(error, "signin"), "warn");
         return;
       }
       appUnlocked = true;
-      document.getElementById("authPassword").value = "";
-      document.getElementById("authDisplayName").value = "";
+      clearAuthInputs(true);
       document.getElementById("authPanel").classList.add("hidden");
       updateAppVisibility();
     }
 
     async function signUpWithPassword(){
       if(!supabaseClient){
-        alert("Önce Supabase yapılandırmasını tamamlayın.");
+        setCloudStatus("Önce Supabase yapılandırmasını tamamlayın.", "warn");
+        return;
+      }
+      if(currentUser){
+        setCloudStatus("Bu tarayicida zaten acik bir oturum var. Yeni hesap icin once 'Baska Hesap Kullan' butonunu kullanın.", "warn");
         return;
       }
       const displayName = document.getElementById("authDisplayName").value.trim();
       const email = document.getElementById("authEmail").value.trim();
       const password = document.getElementById("authPassword").value;
       if(!displayName || !email || !password){
-        alert("Kullanıcı adı, e-posta ve şifre zorunludur.");
+        setCloudStatus("Kullanıcı adı, e-posta ve şifre zorunludur.", "warn");
         return;
       }
       const { error } = await supabaseClient.auth.signUp({
@@ -2361,11 +2407,12 @@
         }
       });
       if(error){
-        alert(`Kayıt başarısız: ${error.message}`);
+        setCloudStatus(formatAuthError(error, "signup"), "warn");
         return;
       }
-      document.getElementById("authDisplayName").value = "";
-      alert("Hesap oluşturuldu. E-posta doğrulaması açıksa mailinizi onaylayıp giriş yapın.");
+      clearAuthInputs(false);
+      setAuthMode("signin");
+      setCloudStatus("Hesap olusturma istegi alindi. E-posta dogrulamasi aciksa mailinizi onaylayip sonra giris yapin.", "ok");
     }
 
     async function signOutUser(){
