@@ -50,6 +50,14 @@
       justify-content:space-between;
       gap:14px;
       margin-bottom:20px;
+      position:sticky;
+      top:12px;
+      z-index:800;
+      background:rgba(244,247,251,.92);
+      backdrop-filter: blur(8px);
+      padding:10px 12px;
+      border-radius:16px;
+      border:1px solid rgba(229,231,235,.9);
     }
 
     .brand{
@@ -2268,9 +2276,9 @@
       if(authGithubBtn) authGithubBtn.classList.toggle("hidden", !configOk);
       if(authLocalBtn) authLocalBtn.classList.toggle("hidden", configOk);
 
-      if(authPrimaryBtn) authPrimaryBtn.disabled = !configOk;
-      if(authSecondaryBtn) authSecondaryBtn.disabled = !configOk;
-      if(authGithubBtn) authGithubBtn.disabled = !configOk;
+      if(authPrimaryBtn) authPrimaryBtn.disabled = false;
+      if(authSecondaryBtn) authSecondaryBtn.disabled = false;
+      if(authGithubBtn) authGithubBtn.disabled = false;
 
       document.getElementById("logoutBtn").classList.toggle("hidden", !currentUser);
       document.getElementById("authContinueBtn").classList.toggle("hidden", authMode === "signup" || !currentUser);
@@ -4862,6 +4870,7 @@
       renderAnalysis();
       document.getElementById("financeToggleBtn").classList.toggle("active", isFinancialVisible());
       document.getElementById("financeToggleBtn").textContent = isFinancialVisible() ? "🙈" : "👁️";
+      document.getElementById("logoutBtn").classList.toggle("hidden", !currentUser);
 
       if(currentDetailCariId) renderCariDetailIntoModal(currentDetailCariId);
     }
