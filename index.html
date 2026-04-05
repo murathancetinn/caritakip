@@ -76,28 +76,6 @@
       flex-wrap:wrap;
       align-items:center;
     }
-    .status-chip{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:10px 12px;
-      border-radius:999px;
-      background:#fff;
-      border:1px solid var(--line);
-      font-size:13px;
-      color:var(--text);
-      white-space:nowrap;
-    }
-    .status-dot{
-      width:10px;
-      height:10px;
-      border-radius:50%;
-      background:#94a3b8;
-      flex:0 0 auto;
-    }
-    .status-dot.ok{background:#16a34a}
-    .status-dot.warn{background:#d97706}
-    .status-dot.off{background:#94a3b8}
 
     .btn{
       border:none;
@@ -754,11 +732,6 @@
         </div>
       </div>
       <div class="toolbar">
-        <div class="status-chip" id="authStatusChip">
-          <span class="status-dot off" id="authStatusDot"></span>
-          <span id="authStatusText">Yerel mod</span>
-        </div>
-        <button class="btn secondary" id="authToggleBtn" onclick="toggleAuthPanel()">Bulut Girişi</button>
         <button class="btn secondary hidden" id="logoutBtn" onclick="signOutUser()">Çıkış Yap</button>
         <button class="icon-btn active" id="financeToggleBtn" onclick="toggleFinanceVisibility()" title="Finansal değerleri göster / gizle">👁️</button>
         <button class="btn secondary" onclick="exportJSON()">Yedek Al</button>
@@ -768,30 +741,6 @@
         </label>
         <button class="btn danger" onclick="resetAllData()">Tüm Verileri Sıfırla</button>
       </div>
-    </div>
-
-    <div class="card no-print auth-box hidden" id="authPanel">
-      <div class="section-title">
-        <div>
-          <h2>Bulut Hesabı</h2>
-          <div class="subtitle">Oturum durumu, senkron ve hesap bilginiz burada görünür</div>
-        </div>
-      </div>
-
-      <div class="info-note" style="margin-bottom:14px;">
-        Giris yapildiginda uygulama Supabase veritabaniyla calisir. Buradan mevcut oturum durumunu gorebilir, senkronu manuel tetikleyebilir veya cikis yapabilirsiniz.
-      </div>
-      <div class="fields">
-        <div class="field">
-          <label>Kullanici Adi</label>
-          <input id="accountDisplayName" type="text" placeholder="Kullanici adiniz">
-        </div>
-        <div class="field">
-          <label>E-posta</label>
-          <input id="accountEmail" type="text" readonly>
-        </div>
-      </div>
-      <div class="footer-note" style="margin-top:12px;">Guncel oturum ve bulut durumu ust bardaki rozetle de gorunur.</div>
     </div>
 
     <div class="grid cols-4 no-print" style="margin-bottom:18px;">
@@ -2197,21 +2146,31 @@
     function setAuthMode(mode){
       authMode = mode === "signup" ? "signup" : "signin";
       const signup = authMode === "signup";
+      const hasSession = !!currentUser;
       document.getElementById("authTabSignin").classList.toggle("active", !signup);
       document.getElementById("authTabSignup").classList.toggle("active", signup);
       document.getElementById("authNameField").classList.toggle("hidden", !signup);
-      document.getElementById("authGateTitle").textContent = signup ? "Yeni hesap olusturun" : "Hesabiniza giris yapin";
-      document.getElementById("authGateSubtitle").textContent = signup
-        ? "Kullanici adi, e-posta ve sifre ile Supabase hesabinizi olusturun."
-        : "Ayni e-posta ve sifreyle tum cihazlarinizda verilerinize erisin.";
-      document.getElementById("authPrimaryBtn").textContent = signup ? "Hesap Olustur" : "Giris Yap";
-      document.getElementById("authSecondaryBtn").textContent = signup ? "Giris Ekranina Gec" : "Kayit Ekranina Gec";
-      document.getElementById("authContinueBtn").classList.toggle("hidden", signup || !currentUser);
-      document.getElementById("authSwitchAccountBtn").classList.toggle("hidden", !currentUser);
-      if(signup && currentUser){
-        setCloudStatus("Bu tarayicida acik bir oturum var. Yeni hesap acmak icin once 'Baska Hesap Kullan' ile cikis yapin.", "warn");
-      }else if(!currentUser){
-        setCloudStatus("Giris yaptiktan sonra verileriniz otomatik olarak buluta kaydedilir.", "warn");
+      document.getElementById("authContinueBtn").classList.toggle("hidden", signup || !hasSession);
+      document.getElementById("authSwitchAccountBtn").classList.toggle("hidden", !hasSession);
+      if(signup){
+        document.getElementById("authGateTitle").textContent = "Yeni hesap olusturun";
+        document.getElementById("authGateSubtitle").textContent = hasSession
+          ? "Bu tarayicida aktif bir oturum var. Yeni hesap acmak icin once 'Baska Hesap Kullan' ile cikis yapin."
+          : "Kullanici adi, e-posta ve sifre ile Supabase hesabinizi olusturun. Mail dogrulamasindan sonra giris yapabilirsiniz.";
+        document.getElementById("authPrimaryBtn").textContent = "Hesap Olustur";
+        document.getElementById("authSecondaryBtn").textContent = "Giris Ekranina Gec";
+      }else{
+        document.getElementById("authGateTitle").textContent = hasSession ? "Aktif oturum bulundu" : "Hesabiniza giris yapin";
+        document.getElementById("authGateSubtitle").textContent = hasSession
+          ? "Daha once bu tarayicida giris yapilmis. Dogrudan uygulamaya gecebilir veya farkli bir hesapla devam edebilirsiniz."
+          : "E-posta ve sifrenizle giris yapin. Verileriniz otomatik olarak buluta kaydedilir.";
+        document.getElementById("authPrimaryBtn").textContent = "Giris Yap";
+        document.getElementById("authSecondaryBtn").textContent = "Kayit Ekranina Gec";
+      }
+      if(!hasSession){
+        setCloudStatus(signup
+          ? "Kayit olduktan sonra e-posta dogrulamasini tamamlayip giris yapin."
+          : "Giris yaptiktan sonra verileriniz otomatik olarak buluta kaydedilir.", "warn");
       }
     }
 
@@ -2232,6 +2191,7 @@
       clearAuthInputs();
       setAuthMode("signup");
       updateAuthUI();
+      setCloudStatus("Yeni hesap olusturmak icin bilgilerinizi girin.", "warn");
     }
 
     async function handleAuthPrimaryAction(){
@@ -2243,7 +2203,6 @@
       const email = currentUser?.email || "";
       const displayName = getUserDisplayName();
       document.getElementById("logoutBtn").classList.toggle("hidden", !currentUser);
-      document.getElementById("authToggleBtn").textContent = currentUser ? "Bulut Hesabı" : "Bulut Girişi";
       document.getElementById("authContinueBtn").classList.toggle("hidden", authMode === "signup" || !currentUser);
       document.getElementById("authSwitchAccountBtn").classList.toggle("hidden", !currentUser);
       if(!hasValidSupabaseConfig()){
@@ -2256,19 +2215,11 @@
       }else{
         setCloudStatus("Giris yaptiktan sonra verileriniz otomatik olarak buluta kaydedilir.", "warn");
       }
-      const accountName = document.getElementById("accountDisplayName");
-      const accountEmail = document.getElementById("accountEmail");
       const settingsName = document.getElementById("settingsDisplayName");
       const settingsEmail = document.getElementById("settingsAccountEmail");
-      if(accountName) accountName.value = currentUser ? displayName : "";
-      if(accountEmail) accountEmail.value = currentUser ? email : "";
       if(settingsName) settingsName.value = currentUser ? displayName : "";
       if(settingsEmail) settingsEmail.value = currentUser ? email : "";
       updateAppVisibility();
-    }
-
-    function toggleAuthPanel(){
-      document.getElementById("authPanel").classList.toggle("hidden");
     }
 
     async function initSupabase(){
@@ -2362,8 +2313,13 @@
     }
 
     async function signInWithPassword(){
+      if(currentUser){
+        appUnlocked = true;
+        updateAppVisibility();
+        return;
+      }
       if(!supabaseClient){
-        alert("Önce Supabase yapılandırmasını tamamlayın.");
+        setCloudStatus("Önce Supabase yapılandırmasını tamamlayın.", "warn");
         return;
       }
       const email = document.getElementById("authEmail").value.trim();
@@ -2379,7 +2335,6 @@
       }
       appUnlocked = true;
       clearAuthInputs(true);
-      document.getElementById("authPanel").classList.add("hidden");
       updateAppVisibility();
     }
 
