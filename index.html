@@ -805,26 +805,36 @@
         <h3 id="authGateTitle">Hesabiniza giris yapin</h3>
         <div class="subtitle" id="authGateSubtitle">Ayni e-posta ve sifreyle tum cihazlarinizda verilerinize erisin.</div>
 
-        <div class="field hidden" id="authNameField">
-          <label>Kullanici Adi</label>
-          <input id="authDisplayName" type="text" placeholder="Orn: Murathan Cetin">
-        </div>
+        <form id="authForm" autocomplete="on">
+          <div class="field hidden" id="authNameField">
+            <label>Kullanici Adi</label>
+            <input id="authDisplayName" type="text" name="display_name" autocomplete="name" placeholder="Orn: Murathan Cetin">
+          </div>
 
-        <div class="field" style="margin-top:14px;">
-          <label>E-posta</label>
-          <input id="authEmail" type="email" placeholder="ornek@mail.com">
-        </div>
-        <div class="field" style="margin-top:14px;">
-          <label>Şifre</label>
-          <input id="authPassword" type="password" placeholder="En az 6 karakter">
-        </div>
+          <div class="field" style="margin-top:14px;">
+            <label>E-posta</label>
+            <input id="authEmail" type="email" name="email" autocomplete="email" placeholder="ornek@mail.com">
+          </div>
+          <div class="field" style="margin-top:14px;">
+            <label>Şifre</label>
+            <input id="authPassword" type="password" name="password" autocomplete="current-password" placeholder="En az 6 karakter">
+          </div>
 
-        <div class="action-row" style="margin-top:18px;">
-          <button class="btn" id="authPrimaryBtn" type="button" onclick="handleAuthPrimaryAction()">Giris Yap</button>
-          <button class="btn secondary" id="authSecondaryBtn" type="button" onclick="toggleAuthMode()">Kayit Ekranina Gec</button>
-          <button class="btn success hidden" id="authContinueBtn" type="button" onclick="enterApplication()">Uygulamaya Gec</button>
-          <button class="btn danger hidden" id="authSwitchAccountBtn" type="button" onclick="prepareFreshAccountFlow()">Baska Hesap Kullan</button>
-        </div>
+          <div class="field" id="authRememberRow" style="margin-top:12px;">
+            <label style="display:flex;align-items:center;gap:10px;font-weight:600;color:#374151;">
+              <input id="authRememberMe" type="checkbox" style="width:18px;height:18px;">
+              Beni hatırla (e-posta)
+            </label>
+            <div class="hint">Tarayıcı şifre yöneticisi için giriş formu kaydedilebilir.</div>
+          </div>
+
+          <div class="action-row" style="margin-top:18px;">
+            <button class="btn" id="authPrimaryBtn" type="submit">Giris Yap</button>
+            <button class="btn secondary" id="authSecondaryBtn" type="button" onclick="toggleAuthMode()">Kayit Ekranina Gec</button>
+            <button class="btn success hidden" id="authContinueBtn" type="button" onclick="enterApplication()">Uygulamaya Gec</button>
+            <button class="btn danger hidden" id="authSwitchAccountBtn" type="button" onclick="prepareFreshAccountFlow()">Baska Hesap Kullan</button>
+          </div>
+        </form>
 
         <div class="auth-divider">veya</div>
         <div class="auth-provider-row">
@@ -847,7 +857,7 @@
         </div>
       </div>
       <div class="toolbar">
-        <button class="btn secondary hidden" id="logoutBtn" onclick="signOutUser()">Çıkış Yap</button>
+        <button class="btn secondary hidden" id="logoutBtn" data-logout="true" onclick="signOutUser()">Çıkış Yap</button>
         <button class="icon-btn active" id="financeToggleBtn" onclick="toggleFinanceVisibility()" title="Finansal değerleri göster / gizle">👁️</button>
         <button class="btn secondary" onclick="exportJSON()">Yedek Al</button>
         <label class="btn secondary" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;">
@@ -1806,7 +1816,7 @@
 
               <div class="action-row" style="margin-top:14px;">
                 <button class="btn warning" type="button" onclick="changeAccountPassword()">Şifreyi Değiştir</button>
-                <button class="btn danger" type="button" onclick="signOutUser()">Çıkış Yap</button>
+                <button class="btn danger" type="button" data-logout="true" onclick="signOutUser()">Çıkış Yap</button>
               </div>
             </div>
 
@@ -2003,6 +2013,7 @@
 
   <script>
     const STORAGE_KEY = "cari_takip_app_v3";
+    const AUTH_PREFS_KEY = "cari_auth_prefs_v1";
     const SEARCH_SELECTS = {};
     const MONTH_NAMES = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
     const CLOUD_TABLE = "app_user_data";
@@ -2024,6 +2035,7 @@
     let appUnlocked = false;
     let localModeUnlocked = false;
     const AUTO_ENTER_ON_SESSION = true;
+    let isSigningOut = false;
 
     function blankAppData(){
       return {
@@ -2251,6 +2263,48 @@
       document.getElementById("authDisplayName").value = "";
     }
 
+    function loadAuthPrefs(){
+      try{
+        const raw = localStorage.getItem(AUTH_PREFS_KEY);
+        if(!raw) return;
+        const prefs = JSON.parse(raw);
+        const remember = !!prefs.remember;
+        const email = String(prefs.email || "");
+        const rememberEl = document.getElementById("authRememberMe");
+        if(rememberEl) rememberEl.checked = remember;
+        if(remember && email){
+          const emailEl = document.getElementById("authEmail");
+          if(emailEl && !emailEl.value) emailEl.value = email;
+        }
+      }catch(err){
+        console.warn("Auth prefs okunamadı", err);
+      }
+    }
+
+    function saveAuthPrefs(){
+      const rememberEl = document.getElementById("authRememberMe");
+      const emailEl = document.getElementById("authEmail");
+      const remember = !!rememberEl?.checked;
+      const email = String(emailEl?.value || "").trim();
+      const payload = { remember, email: remember ? email : "" };
+      localStorage.setItem(AUTH_PREFS_KEY, JSON.stringify(payload));
+    }
+
+    function clearSupabaseSessionStorage(){
+      try{
+        const cfg = window.SUPABASE_CONFIG || {};
+        const url = String(cfg.url || "");
+        const ref = url.includes("supabase.co") ? url.split("https://")[1]?.split(".supabase.co")[0] : "";
+        if(ref){
+          const key = `sb-${ref}-auth-token`;
+          localStorage.removeItem(key);
+          sessionStorage.removeItem(key);
+        }
+      }catch(err){
+        console.warn("Supabase session temizlenemedi", err);
+      }
+    }
+
     function isAuthLocked(){
       if(hasValidSupabaseConfig()){
         return !appUnlocked;
@@ -2283,6 +2337,10 @@
       document.getElementById("authTabSignin").classList.toggle("active", !signup);
       document.getElementById("authTabSignup").classList.toggle("active", signup);
       document.getElementById("authNameField").classList.toggle("hidden", !signup);
+      const rememberRow = document.getElementById("authRememberRow");
+      if(rememberRow) rememberRow.classList.toggle("hidden", signup);
+      const passwordEl = document.getElementById("authPassword");
+      if(passwordEl) passwordEl.setAttribute("autocomplete", signup ? "new-password" : "current-password");
       document.getElementById("authContinueBtn").classList.toggle("hidden", signup || !hasSession);
       document.getElementById("authSwitchAccountBtn").classList.toggle("hidden", !hasSession);
       if(signup){
@@ -2313,12 +2371,13 @@
 
     async function prepareFreshAccountFlow(){
       if(currentUser && supabaseClient){
-        const { error } = await supabaseClient.auth.signOut();
+        const { error } = await supabaseClient.auth.signOut({ scope: "local" });
         if(error){
           setCloudStatus(formatAuthError(error, "signin"), "warn");
           return;
         }
       }
+      clearSupabaseSessionStorage();
       currentUser = null;
       appUnlocked = false;
       clearAuthInputs();
@@ -2351,6 +2410,9 @@
       document.getElementById("logoutBtn").classList.toggle("hidden", !currentUser);
       document.getElementById("authContinueBtn").classList.toggle("hidden", authMode === "signup" || !currentUser);
       document.getElementById("authSwitchAccountBtn").classList.toggle("hidden", !currentUser);
+      if(currentUser && AUTO_ENTER_ON_SESSION){
+        appUnlocked = true;
+      }
       if(!configOk){
         setCloudStatus("Supabase yapılandırması bulunamadı. Giriş için supabase-config.js dosyasını doldurun veya yerel modda devam edin.", "off");
         updateAppVisibility();
@@ -2489,6 +2551,7 @@
       const { data } = await supabaseClient.auth.getUser();
       currentUser = data?.user || currentUser;
       appUnlocked = true;
+      saveAuthPrefs();
       clearAuthInputs(true);
       updateAuthUI();
     }
@@ -2535,21 +2598,25 @@
         setCloudStatus(formatAuthError(error, "signup"), "warn");
         return;
       }
+      saveAuthPrefs();
       clearAuthInputs(false);
       setAuthMode("signin");
       setCloudStatus("Hesap olusturma istegi alindi. E-posta dogrulamasi aciksa mailinizi onaylayip sonra giris yapin.", "ok");
     }
 
     async function signOutUser(){
-      if(!supabaseClient || !currentUser){
-        alert("Önce giriş yapmalısınız.");
-        return;
+      if(isSigningOut) return;
+      isSigningOut = true;
+      const buttons = document.querySelectorAll('[data-logout="true"]');
+      buttons.forEach(btn=>{
+        btn.disabled = true;
+      });
+      let error = null;
+      if(supabaseClient){
+        const result = await supabaseClient.auth.signOut({ scope: "local" }).catch(err=>({ error: err }));
+        error = result?.error || null;
       }
-      const { error } = await supabaseClient.auth.signOut();
-      if(error){
-        alert(`Çıkış yapılamadı: ${error.message}`);
-        return;
-      }
+      clearSupabaseSessionStorage();
       currentUser = null;
       appUnlocked = false;
       localModeUnlocked = false;
@@ -2558,7 +2625,15 @@
       setAuthMode("signin");
       renderAll();
       updateAuthUI();
-      alert("Çıkış yapıldı. Yerel görünüm temizlendi.");
+      if(error){
+        alert(`Çıkış tamamlandı fakat oturum temizliği uyarısı var: ${error.message || error}`);
+      }else{
+        alert("Çıkış yapıldı. Yerel görünüm temizlendi.");
+      }
+      buttons.forEach(btn=>{
+        btn.disabled = false;
+      });
+      isSigningOut = false;
     }
 
     async function saveAccountProfile(){
@@ -4976,12 +5051,34 @@
       document.getElementById("modalBackdrop").addEventListener("click", closeModal);
     }
 
+    function setupAuthForm(){
+      const form = document.getElementById("authForm");
+      if(form){
+        form.addEventListener("submit", (e)=>{
+          e.preventDefault();
+          handleAuthPrimaryAction();
+        });
+      }
+      const rememberEl = document.getElementById("authRememberMe");
+      const emailEl = document.getElementById("authEmail");
+      if(rememberEl){
+        rememberEl.addEventListener("change", saveAuthPrefs);
+      }
+      if(emailEl){
+        emailEl.addEventListener("blur", ()=>{
+          if(document.getElementById("authRememberMe")?.checked) saveAuthPrefs();
+        });
+      }
+    }
+
     window.addEventListener("load", async ()=>{
       setAuthMode("signin");
+      loadAuthPrefs();
       await loadData();
       setupNav();
       setupSearchSelects();
       setupGlobalEvents();
+      setupAuthForm();
       renderAll();
     });
   </script>
