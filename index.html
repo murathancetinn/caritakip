@@ -688,7 +688,7 @@
   <script src="./supabase-config.js"></script>
 </head>
 <body>
-  <div class="auth-gate hidden" id="authGate">
+  <div class="auth-gate" id="authGate">
     <div class="auth-gate-shell">
       <div class="auth-hero">
         <div>
@@ -735,6 +735,7 @@
         <div class="action-row" style="margin-top:18px;">
           <button class="btn" id="authPrimaryBtn" type="button" onclick="handleAuthPrimaryAction()">Giris Yap</button>
           <button class="btn secondary" id="authSecondaryBtn" type="button" onclick="toggleAuthMode()">Kayit Ekranina Gec</button>
+          <button class="btn success hidden" id="authContinueBtn" type="button" onclick="enterApplication()">Uygulamaya Gec</button>
         </div>
 
         <div class="auth-note" id="cloudStatusText">Supabase yapilandirmasi tamamsa giris ekranini kullanabilirsiniz.</div>
@@ -742,7 +743,7 @@
     </div>
   </div>
 
-  <div class="container app-shell" id="appShell">
+  <div class="container app-shell hidden" id="appShell">
     <div class="topbar no-print">
       <div class="brand">
         <div class="brand-badge">₺</div>
@@ -757,7 +758,6 @@
           <span id="authStatusText">Yerel mod</span>
         </div>
         <button class="btn secondary" id="authToggleBtn" onclick="toggleAuthPanel()">Bulut Girişi</button>
-        <button class="btn secondary hidden" id="syncNowBtn" onclick="syncCloudNow()">Bulutu Eşitle</button>
         <button class="btn secondary hidden" id="logoutBtn" onclick="signOutUser()">Çıkış Yap</button>
         <button class="icon-btn active" id="financeToggleBtn" onclick="toggleFinanceVisibility()" title="Finansal değerleri göster / gizle">👁️</button>
         <button class="btn secondary" onclick="exportJSON()">Yedek Al</button>
@@ -1955,6 +1955,7 @@
     let cloudSaveTimer = null;
     let suppressCloudSave = false;
     let authMode = "signin";
+    let appUnlocked = false;
 
     function blankAppData(){
       return {
@@ -2162,10 +2163,15 @@
     }
 
     function updateAppVisibility(){
-      const locked = hasValidSupabaseConfig() && !currentUser;
+      const locked = hasValidSupabaseConfig() ? !appUnlocked : false;
       document.body.classList.toggle("auth-locked", locked);
       document.getElementById("authGate").classList.toggle("hidden", !locked);
       document.getElementById("appShell").classList.toggle("hidden", locked);
+    }
+
+    function enterApplication(){
+      appUnlocked = true;
+      updateAppVisibility();
     }
 
     function setAuthMode(mode){
@@ -2194,18 +2200,18 @@
     function updateAuthUI(){
       const email = currentUser?.email || "";
       const displayName = getUserDisplayName();
-      document.getElementById("syncNowBtn").classList.toggle("hidden", !currentUser);
       document.getElementById("logoutBtn").classList.toggle("hidden", !currentUser);
       document.getElementById("authToggleBtn").textContent = currentUser ? "Bulut Hesabı" : "Bulut Girişi";
+      document.getElementById("authContinueBtn").classList.toggle("hidden", !currentUser);
       if(!hasValidSupabaseConfig()){
         setCloudStatus("Yerel mod aktif. Supabase ayarı yapıldığında bulut senkronu açılır.", "off");
         updateAppVisibility();
         return;
       }
       if(currentUser){
-        setCloudStatus(`Bulut bağlı: ${displayName}`, "ok");
+        setCloudStatus(`Bulut bagli ve otomatik yedekleme acik: ${displayName}`, "ok");
       }else{
-        setCloudStatus("Bulut hazır. Giriş yapıldığında cihazlar arası senkron açılır.", "warn");
+        setCloudStatus("Giris yaptiktan sonra verileriniz otomatik olarak buluta kaydedilir.", "warn");
       }
       const accountName = document.getElementById("accountDisplayName");
       const accountEmail = document.getElementById("accountEmail");
@@ -2237,6 +2243,7 @@
 
       supabaseClient.auth.onAuthStateChange(async (_event, session)=>{
         currentUser = session?.user || null;
+        appUnlocked = false;
         updateAuthUI();
         if(currentUser){
           await pullCloudData();
@@ -2251,6 +2258,7 @@
         return;
       }
       currentUser = data.session?.user || null;
+      appUnlocked = false;
       updateAuthUI();
       if(currentUser) await pullCloudData();
     }
@@ -2326,9 +2334,11 @@
         alert(`Giriş başarısız: ${error.message}`);
         return;
       }
+      appUnlocked = true;
       document.getElementById("authPassword").value = "";
       document.getElementById("authDisplayName").value = "";
       document.getElementById("authPanel").classList.add("hidden");
+      updateAppVisibility();
     }
 
     async function signUpWithPassword(){
@@ -2366,6 +2376,7 @@
         return;
       }
       currentUser = null;
+      appUnlocked = false;
       localStorage.removeItem(STORAGE_KEY);
       appData = blankAppData();
       setAuthMode("signin");
