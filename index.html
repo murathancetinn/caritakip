@@ -2162,6 +2162,7 @@
     const RECOVERY_LOG_KEY = "cari_takip_recovery_log_v1";
     const ERROR_LOG_KEY = "cari_takip_error_log_v1";
     const CLOUD_ERROR_KEY = "cari_takip_cloud_error_v1";
+    const LAST_AUTH_USER_KEY = "cari_takip_last_user_v1";
     const SEARCH_SELECTS = {};
     const MONTH_NAMES = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
     const CLOUD_TABLE = "app_user_data";
@@ -2186,6 +2187,7 @@
     let isSigningOut = false;
     let sessionExpired = false;
     let lastCloudError = null;
+    let allowOfflineAccess = false;
 
     function blankAppData(){
       return {
@@ -2248,6 +2250,26 @@
       }catch(err){
         console.warn("Kullanıcı önbelleği yazılamadı", err);
       }
+    }
+
+    function setLastAuthUser(user){
+      if(!user) return;
+      const payload = {
+        id: user.id,
+        email: user.email || "",
+        updatedAt: nowIso()
+      };
+      localStorage.setItem(LAST_AUTH_USER_KEY, JSON.stringify(payload));
+    }
+
+    function clearLastAuthUser(){
+      localStorage.removeItem(LAST_AUTH_USER_KEY);
+    }
+
+    function getLastAuthUser(){
+      const parsed = safeParseJSON(localStorage.getItem(LAST_AUTH_USER_KEY));
+      if(parsed?.id) return parsed;
+      return null;
     }
 
     function readUserCache(userId){
@@ -2577,6 +2599,14 @@
       logAppError("cloud", lastCloudError.message, lastCloudError.detail);
     }
 
+    function clearCloudError(){
+      lastCloudError = null;
+      localStorage.removeItem(CLOUD_ERROR_KEY);
+      const btn = document.getElementById("cloudErrorBtn");
+      if(btn) btn.classList.toggle("hidden", true);
+      updateCloudErrorPanel();
+    }
+
     function loadCloudError(){
       const stored = safeParseJSON(localStorage.getItem(CLOUD_ERROR_KEY));
       if(stored?.message){
@@ -2756,6 +2786,7 @@
 
     function isAuthLocked(){
       if(hasValidSupabaseConfig()){
+        if(allowOfflineAccess) return false;
         return !appUnlocked;
       }
       return !localModeUnlocked;
@@ -2775,6 +2806,7 @@
 
     function openAuthGate(){
       appUnlocked = false;
+      allowOfflineAccess = false;
       updateAppVisibility();
     }
 
@@ -2909,14 +2941,18 @@
         if(event === "SIGNED_IN" && AUTO_ENTER_ON_SESSION){
           appUnlocked = true;
           sessionExpired = false;
+          allowOfflineAccess = false;
+          if(currentUser) setLastAuthUser(currentUser);
         }
         if(event === "SIGNED_OUT"){
           if(isSigningOut){
             appUnlocked = false;
             sessionExpired = false;
+            allowOfflineAccess = false;
           }else{
             sessionExpired = true;
             appUnlocked = true;
+            allowOfflineAccess = true;
           }
         }
         updateAuthUI();
@@ -2936,6 +2972,16 @@
       if(currentUser && AUTO_ENTER_ON_SESSION){
         appUnlocked = true;
         sessionExpired = false;
+        allowOfflineAccess = false;
+        setLastAuthUser(currentUser);
+      }
+      if(!currentUser){
+        const lastUser = getLastAuthUser();
+        if(lastUser && hasMeaningfulData(appData)){
+          sessionExpired = true;
+          appUnlocked = true;
+          allowOfflineAccess = true;
+        }
       }
       updateAuthUI();
       if(currentUser) await pullCloudData();
@@ -2963,6 +3009,10 @@
           localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
           suppressCloudSave = false;
           setCloudStatus("Buluta erişilemedi. Yerel yedekten veri yüklendi.", "warn");
+          addRecoveryLog({
+            time: nowIso(),
+            note: "Bulut okunamadığı için yerel yedek kullanıldı"
+          });
         }
         return;
       }
@@ -2976,6 +3026,7 @@
         suppressCloudSave = false;
         lastCloudSyncAt = data.updated_at || nowIso();
         setCloudStatus(`Buluttan veri yüklendi: ${currentUser.email}`, "ok");
+        clearCloudError();
         writeUserCache(currentUser.id);
       }else{
         const cached = readUserCache(currentUser.id);
@@ -2988,6 +3039,10 @@
           suppressCloudSave = false;
           lastCloudSyncAt = cached.updatedAt || nowIso();
           setCloudStatus("Bulutta veri bulunamadı. Yerel yedekten geri yüklendi.", "warn");
+          addRecoveryLog({
+            time: nowIso(),
+            note: "Bulutta veri bulunamadı, yerel yedekle devam edildi"
+          });
           await pushCloudData();
         }else{
           await pushCloudData();
@@ -3019,6 +3074,7 @@
       lastCloudSyncAt = payload.updated_at;
       writeUserCache(currentUser.id);
       setCloudStatus(`Bulut eşitlendi: ${currentUser.email}`, "ok");
+      clearCloudError();
     }
 
     async function syncCloudNow(){
@@ -3054,6 +3110,7 @@
       const { data } = await supabaseClient.auth.getUser();
       currentUser = data?.user || currentUser;
       appUnlocked = true;
+      if(currentUser) setLastAuthUser(currentUser);
       saveAuthPrefs();
       clearAuthInputs(true);
       updateAuthUI();
@@ -3101,6 +3158,7 @@
         setCloudStatus(formatAuthError(error, "signup"), "warn");
         return;
       }
+      if(currentUser) setLastAuthUser(currentUser);
       saveAuthPrefs();
       clearAuthInputs(false);
       setAuthMode("signin");
@@ -3124,6 +3182,8 @@
         currentUser = null;
         appUnlocked = false;
         localModeUnlocked = false;
+        allowOfflineAccess = false;
+        clearLastAuthUser();
         appData = blankAppData();
         setAuthMode("signin");
         renderAll();
@@ -5491,52 +5551,56 @@
 
     // RENDER ALL
     function renderAll(){
-      renderStats();
-      renderCariTable();
-      renderDashboard();
-      renderJobListTable();
-      renderCheckListTable();
-      renderKasa();
-      fillSettingsForm();
-      fillJobCariFilter();
-      fillAnalysisMonthOptions();
-      fillMonthFilterOptions("kasaPaymentMonthFilter");
-      fillMonthFilterOptions("kasaExpenseMonthFilter");
-      renderYearArchivesList();
+      try{
+        renderStats();
+        renderCariTable();
+        renderDashboard();
+        renderJobListTable();
+        renderCheckListTable();
+        renderKasa();
+        fillSettingsForm();
+        fillJobCariFilter();
+        fillAnalysisMonthOptions();
+        fillMonthFilterOptions("kasaPaymentMonthFilter");
+        fillMonthFilterOptions("kasaExpenseMonthFilter");
+        renderYearArchivesList();
 
-      renderSearchSelect("jobCari");
-      renderSearchSelect("paymentCari");
-      renderSearchSelect("debtCari");
-      renderSearchSelect("statementCari");
-      renderSearchSelect("editJobCari");
-      renderSearchSelect("editPaymentCari");
+        renderSearchSelect("jobCari");
+        renderSearchSelect("paymentCari");
+        renderSearchSelect("debtCari");
+        renderSearchSelect("statementCari");
+        renderSearchSelect("editJobCari");
+        renderSearchSelect("editPaymentCari");
 
-      if(!document.getElementById("jobDate").value) document.getElementById("jobDate").value = today();
-      if(!document.getElementById("paymentDate").value) document.getElementById("paymentDate").value = today();
-      if(!document.getElementById("debtDate").value) document.getElementById("debtDate").value = today();
-      if(!document.getElementById("expenseDate").value) document.getElementById("expenseDate").value = today();
-      if(!document.getElementById("expenseHandCash").value) document.getElementById("expenseHandCash").value = "no";
-      if(!document.getElementById("statementEnd").value) document.getElementById("statementEnd").value = today();
-      if(!document.getElementById("analysisEnd").value) document.getElementById("analysisEnd").value = today();
-      if(!document.getElementById("analysisStart").value){
-        const currentRange = getMonthRange(getCurrentMonthKey());
-        document.getElementById("analysisStart").value = currentRange.start;
+        if(!document.getElementById("jobDate").value) document.getElementById("jobDate").value = today();
+        if(!document.getElementById("paymentDate").value) document.getElementById("paymentDate").value = today();
+        if(!document.getElementById("debtDate").value) document.getElementById("debtDate").value = today();
+        if(!document.getElementById("expenseDate").value) document.getElementById("expenseDate").value = today();
+        if(!document.getElementById("expenseHandCash").value) document.getElementById("expenseHandCash").value = "no";
+        if(!document.getElementById("statementEnd").value) document.getElementById("statementEnd").value = today();
+        if(!document.getElementById("analysisEnd").value) document.getElementById("analysisEnd").value = today();
+        if(!document.getElementById("analysisStart").value){
+          const currentRange = getMonthRange(getCurrentMonthKey());
+          document.getElementById("analysisStart").value = currentRange.start;
+        }
+
+        updatePreviewJobId();
+        updatePreviewExpenseId();
+        togglePaymentMethodFields();
+        previewStatement();
+        renderAnalysis();
+        document.getElementById("financeToggleBtn").classList.toggle("active", isFinancialVisible());
+        document.getElementById("financeToggleBtn").textContent = isFinancialVisible() ? "🙈" : "👁️";
+        document.getElementById("logoutBtn").classList.toggle("hidden", !currentUser);
+        renderRecoveryLog();
+        renderErrorLog();
+        updateCloudErrorPanel();
+        updateCloudMeta();
+
+        if(currentDetailCariId) renderCariDetailIntoModal(currentDetailCariId);
+      }catch(err){
+        reportError("Arayüz güncellenemedi.", err?.message || String(err || ""));
       }
-
-      updatePreviewJobId();
-      updatePreviewExpenseId();
-      togglePaymentMethodFields();
-      previewStatement();
-      renderAnalysis();
-      document.getElementById("financeToggleBtn").classList.toggle("active", isFinancialVisible());
-      document.getElementById("financeToggleBtn").textContent = isFinancialVisible() ? "🙈" : "👁️";
-      document.getElementById("logoutBtn").classList.toggle("hidden", !currentUser);
-      renderRecoveryLog();
-      renderErrorLog();
-      updateCloudErrorPanel();
-      updateCloudMeta();
-
-      if(currentDetailCariId) renderCariDetailIntoModal(currentDetailCariId);
     }
 
     function switchSection(sectionId){
